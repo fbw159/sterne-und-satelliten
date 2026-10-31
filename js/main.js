@@ -314,42 +314,89 @@ function infoLaden() {
   return infoLaedt;
 }
 
-/** Sind die Daten alt? Dann die Raumstationen direkt bei CelesTrak nachladen. */
+/* CelesTrak erlaubt Abrufe direkt aus dem Browser (CORS, geprüft am 31.10.2026).
+   Sind die veröffentlichten Daten alt, holt die Seite selbst frische Bahndaten:
+   ab 6 Stunden Raumstationen und helle Satelliten (klein, höchstens alle 2 Stunden),
+   ab 24 Stunden auch alle aktiven Satelliten (groß, höchstens alle 2 Stunden). */
+const CELESTRAK = "https://celestrak.org/NORAD/elements/gp.php?FORMAT=csv&GROUP=";
+async function holeText(url, sek) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), sek * 1000);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) throw new Error(String(r.status));
+    return await r.text();
+  } finally { clearTimeout(t); }
+}
+function csvSpalten(z) {
+  const out = [];
+  let cur = "", q = false;
+  for (let k = 0; k < z.length; k++) {
+    const c = z[k];
+    if (q) { if (c === '"') { if (z[k + 1] === '"') { cur += '"'; k++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+function csvLesen(text) {
+  const zeilen = text.split(/\r?\n/).filter((z) => z.trim());
+  if (zeilen.length < 2 || !zeilen[0].startsWith("OBJECT_NAME")) throw new Error("keine Bahndaten");
+  const kopf = csvSpalten(zeilen[0]);
+  return zeilen.slice(1).map((z) => { const w = csvSpalten(z); const o = {}; kopf.forEach((k, j) => (o[k] = w[j])); return o; });
+}
+/** frische Bahnelemente für schon bekannte Satelliten übernehmen (Einordnung und Helligkeit bleiben) */
+function bahnUebernehmen(liste) {
+  const neu = [];
+  for (const x of liste) {
+    const i = idx.get(Number(x.NORAD_CAT_ID));
+    if (i == null || !x.EPOCH) continue;
+    const ep = Date.parse(x.EPOCH.endsWith("Z") ? x.EPOCH : x.EPOCH + "Z") / 1000;
+    if (!(ep > sats[i][3])) continue;
+    const s = sats[i].slice();
+    s[3] = ep; s[4] = +x.MEAN_MOTION; s[5] = +x.ECCENTRICITY; s[6] = +x.INCLINATION; s[7] = +x.RA_OF_ASC_NODE;
+    s[8] = +x.ARG_OF_PERICENTER; s[9] = +x.MEAN_ANOMALY; s[10] = +x.BSTAR; s[11] = +x.MEAN_MOTION_DOT;
+    s[12] = +x.MEAN_MOTION_DDOT; s[13] = +x.REV_AT_EPOCH || 0;
+    if (!(s[4] > 0.05 && s[4] < 20 && s[5] >= 0 && s[5] < 1 && Number.isFinite(s[10]))) continue;
+    sats[i] = s;
+    neu.push(s);
+  }
+  return neu;
+}
 async function standPruefen() {
   if (!stand || !stand.erzeugt) return;
   const alter = (Date.now() - stand.erzeugt) / 3600000;
-  if (alter < 12) return;
+  if (alter < 6) return;
+  let frisch = false;
   try {
-    const st = speicher.lies("sus.stationen", null);
+    const gemerkt = speicher.lies("sus.kern", null);
     let liste;
-    if (st && Date.now() - st.zeit < 2 * 3600000) liste = st.daten;
+    if (gemerkt && Date.now() - gemerkt.zeit < 2 * 3600000) liste = gemerkt.daten;
     else {
-      const ctrl = new AbortController();
-      setTimeout(() => ctrl.abort(), 9000);
-      const r = await fetch("https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=json", { signal: ctrl.signal });
-      if (!r.ok) throw new Error(r.status);
-      liste = await r.json();
-      speicher.schreib("sus.stationen", { zeit: Date.now(), daten: liste });
+      const [a, b] = await Promise.all([holeText(CELESTRAK + "stations", 15), holeText(CELESTRAK + "visual", 15)]);
+      liste = csvLesen(a).concat(csvLesen(b));
+      speicher.schreib("sus.kern", { zeit: Date.now(), daten: liste });
     }
-    const neu = [];
-    for (const x of liste) {
-      const i = idx.get(Number(x.NORAD_CAT_ID));
-      if (i == null) continue;
-      const s = sats[i].slice();
-      s[3] = Date.parse(x.EPOCH.endsWith("Z") ? x.EPOCH : x.EPOCH + "Z") / 1000;
-      s[4] = x.MEAN_MOTION; s[5] = x.ECCENTRICITY; s[6] = x.INCLINATION; s[7] = x.RA_OF_ASC_NODE;
-      s[8] = x.ARG_OF_PERICENTER; s[9] = x.MEAN_ANOMALY; s[10] = x.BSTAR; s[11] = x.MEAN_MOTION_DOT;
-      s[12] = x.MEAN_MOTION_DDOT; s[13] = x.REV_AT_EPOCH;
-      if (s[3] > sats[i][3]) { sats[i] = s; neu.push(s); }
-    }
+    const neu = bahnUebernehmen(liste);
     if (neu.length) {
       takter.postMessage({ typ: "daten", sats: neu });
       vorher.postMessage({ typ: "daten", sats: neu });
-      issPaesse = null;
+      issPaesse = null; nachtListe = null;
       vorhersagenStarten();
     }
+    frisch = true;
+    stand.browser = Date.now();
+    if (alter > 24 && alleGeladen && Date.now() - (speicher.lies("sus.aktivAbruf", 0) || 0) > 2 * 3600000) {
+      speicher.schreib("sus.aktivAbruf", Date.now());
+      const alle = bahnUebernehmen(csvLesen(await holeText(CELESTRAK + "active", 90)));
+      if (alle.length) await frage(takter, { typ: "daten", sats: alle });
+      stand.browserAlle = Date.now();
+    }
   } catch { /* kein Zugriff – dann eben die gespeicherten Daten */ }
-  if (alter > 72) melde(`Die Bahndaten sind ${Math.round(alter / 24)} Tage alt – Positionen können ungenau sein.`, 8);
+  datenInfo();
+  if (alter > 72 && !frisch) melde(`Die Bahndaten sind ${Math.round(alter / 24)} Tage alt – Positionen können ungenau sein.`, 8);
 }
 
 function datenInfo() {
@@ -357,6 +404,7 @@ function datenInfo() {
   let t = `${zahl(n)} Objekte geladen${E.alle ? "" : " (nur helle Satelliten und Raumstationen)"}.`;
   if (stand && stand.erzeugt) t += ` Bahndaten aufbereitet am ${datum(stand.erzeugt)} um ${uhr(stand.erzeugt)} Uhr (vor ${alterText(stand.erzeugt)}).`;
   if (stand && stand.bahndaten_quelle) t += ` Quelle: ${stand.bahndaten_quelle}.`;
+  if (stand && stand.browser) t += ` Raumstationen und helle Satelliten zusätzlich um ${uhr(stand.browser)} Uhr direkt von CelesTrak aktualisiert${stand.browserAlle ? ", alle anderen auch" : ""}.`;
   $("#daten-info").textContent = t;
 }
 

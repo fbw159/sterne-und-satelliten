@@ -145,8 +145,9 @@ export function steckbriefHtml(c) {
   </table>`;
 
   const wiki = b && b.wiki ? b.wiki : null;
+  const suche = (b && b.suche) || name;
   html += `<div class="verweise">
-    ${wiki ? `<a href="${wikiUrl(wiki)}" target="_blank" rel="noopener">Wikipedia</a>` : `<a href="${wikiUrl(name)}" target="_blank" rel="noopener">Wikipedia-Suche</a>`}
+    ${wiki ? `<a href="${wikiUrl(wiki)}" target="_blank" rel="noopener">Wikipedia</a>` : `<a href="${wikiUrl(suche)}" target="_blank" rel="noopener">Wikipedia-Suche</a>`}
     <a href="https://www.n2yo.com/satellite/?s=${id}" target="_blank" rel="noopener">N2YO</a>
     <a href="https://www.heavens-above.com/satinfo.aspx?satid=${id}" target="_blank" rel="noopener">Heavens-Above</a>
     <a href="https://celestrak.org/satcat/table-satcat.php?CATNR=${id}" target="_blank" rel="noopener">CelesTrak</a>
