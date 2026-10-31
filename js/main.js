@@ -347,64 +347,129 @@ function csvLesen(text) {
   const kopf = csvSpalten(zeilen[0]);
   return zeilen.slice(1).map((z) => { const w = csvSpalten(z); const o = {}; kopf.forEach((k, j) => (o[k] = w[j])); return o; });
 }
-/** frische Bahnelemente für schon bekannte Satelliten übernehmen (Einordnung und Helligkeit bleiben) */
+/** frische Bahnelemente für schon bekannte Satelliten übernehmen (Einordnung und Helligkeit bleiben).
+    liste: kurze Sätze [id, epoche, n, e, i, raan, argp, m, bstar, ndot, nddot, umlauf] */
 function bahnUebernehmen(liste) {
   const neu = [];
   for (const x of liste) {
-    const i = idx.get(Number(x.NORAD_CAT_ID));
-    if (i == null || !x.EPOCH) continue;
-    const ep = Date.parse(x.EPOCH.endsWith("Z") ? x.EPOCH : x.EPOCH + "Z") / 1000;
-    if (!(ep > sats[i][3])) continue;
+    const i = idx.get(x[0]);
+    if (i == null || !(x[1] > sats[i][3])) continue;
+    if (!(x[2] > 0.05 && x[2] < 20 && x[3] >= 0 && x[3] < 1 && Number.isFinite(x[8]))) continue;
     const s = sats[i].slice();
-    s[3] = ep; s[4] = +x.MEAN_MOTION; s[5] = +x.ECCENTRICITY; s[6] = +x.INCLINATION; s[7] = +x.RA_OF_ASC_NODE;
-    s[8] = +x.ARG_OF_PERICENTER; s[9] = +x.MEAN_ANOMALY; s[10] = +x.BSTAR; s[11] = +x.MEAN_MOTION_DOT;
-    s[12] = +x.MEAN_MOTION_DDOT; s[13] = +x.REV_AT_EPOCH || 0;
-    if (!(s[4] > 0.05 && s[4] < 20 && s[5] >= 0 && s[5] < 1 && Number.isFinite(s[10]))) continue;
+    for (let k = 1; k <= 11; k++) s[k + 2] = x[k];
     sats[i] = s;
     neu.push(s);
   }
   return neu;
 }
-async function standPruefen() {
-  if (!stand || !stand.erzeugt) return;
-  const alter = (Date.now() - stand.erzeugt) / 3600000;
-  if (alter < 6) return;
-  let frisch = false;
-  try {
-    const gemerkt = speicher.lies("sus.kern", null);
-    let liste;
-    if (gemerkt && Date.now() - gemerkt.zeit < 2 * 3600000) liste = gemerkt.daten;
-    else {
-      const [a, b] = await Promise.all([holeText(CELESTRAK + "stations", 15), holeText(CELESTRAK + "visual", 15)]);
-      liste = csvLesen(a).concat(csvLesen(b));
-      speicher.schreib("sus.kern", { zeit: Date.now(), daten: liste });
-    }
-    const neu = bahnUebernehmen(liste);
-    if (neu.length) {
-      takter.postMessage({ typ: "daten", sats: neu });
-      vorher.postMessage({ typ: "daten", sats: neu });
-      issPaesse = null; nachtListe = null;
-      vorhersagenStarten();
-    }
-    frisch = true;
-    stand.browser = Date.now();
-    if (alter > 24 && alleGeladen && Date.now() - (speicher.lies("sus.aktivAbruf", 0) || 0) > 2 * 3600000) {
-      speicher.schreib("sus.aktivAbruf", Date.now());
-      const alle = bahnUebernehmen(csvLesen(await holeText(CELESTRAK + "active", 90)));
-      if (alle.length) await frage(takter, { typ: "daten", sats: alle });
-      stand.browserAlle = Date.now();
-    }
-  } catch { /* kein Zugriff – dann eben die gespeicherten Daten */ }
-  datenInfo();
-  if (alter > 72 && !frisch) melde(`Die Bahndaten sind ${Math.round(alter / 24)} Tage alt – Positionen können ungenau sein.`, 8);
+function kurzSaetze(objekte) {
+  const out = [];
+  for (const x of objekte) {
+    if (!x.EPOCH || !x.NORAD_CAT_ID) continue;
+    const ep = Date.parse(x.EPOCH.endsWith("Z") ? x.EPOCH : x.EPOCH + "Z") / 1000;
+    out.push([+x.NORAD_CAT_ID, ep, +x.MEAN_MOTION, +x.ECCENTRICITY, +x.INCLINATION, +x.RA_OF_ASC_NODE,
+      +x.ARG_OF_PERICENTER, +x.MEAN_ANOMALY, +x.BSTAR, +x.MEAN_MOTION_DOT, +x.MEAN_MOTION_DDOT, +x.REV_AT_EPOCH || 0]);
+  }
+  return out;
 }
+
+/** kleiner Zwischenspeicher im Browser (IndexedDB) für die großen Bahndaten */
+const ablage = {
+  db: null,
+  async oeffnen() {
+    if (!this.db) this.db = await new Promise((res, rej) => {
+      const r = indexedDB.open("satelliten-ueber-mir", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("daten");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    return this.db;
+  },
+  async lies(k) {
+    try {
+      const db = await this.oeffnen();
+      return await new Promise((res) => { const q = db.transaction("daten").objectStore("daten").get(k); q.onsuccess = () => res(q.result ?? null); q.onerror = () => res(null); });
+    } catch { return null; }
+  },
+  async schreib(k, v) {
+    try {
+      const db = await this.oeffnen();
+      await new Promise((res) => { const t = db.transaction("daten", "readwrite"); t.objectStore("daten").put(v, k); t.oncomplete = res; t.onerror = res; t.onabort = res; });
+    } catch { /* kein Speicher – egal */ }
+  },
+};
+
+function neuesteEpoche() {
+  let m = 0;
+  for (const s of sats) if ((s[15] & 3) || s[0] === ISS) m = Math.max(m, s[3]);
+  return m * 1000;
+}
+
+/* Die Seite holt sich frische Bahndaten selbst direkt bei CelesTrak:
+   - Raumstationen und helle Satelliten, wenn ihre Bahndaten älter als 6 Stunden sind (höchstens alle 2 Stunden, klein),
+   - alle aktiven Satelliten, wenn der Datenstand der Seite älter als einen Tag ist (höchstens einmal am Tag,
+     im Browser zwischengespeichert, ca. 3 MB). */
+let auffrischenLaeuft = false;
+async function standPruefen() {
+  if (!stand || !stand.erzeugt || auffrischenLaeuft) return;
+  auffrischenLaeuft = true;
+  const jetzt = Date.now();
+  try {
+    // 1) Raumstationen und helle Satelliten
+    if (jetzt - neuesteEpoche() > 6 * 3600000) {
+      try {
+        let liste, zeit = jetzt;
+        const gemerkt = speicher.lies("sus.kern2", null);
+        if (gemerkt && jetzt - gemerkt.zeit < 2 * 3600000) { liste = gemerkt.daten; zeit = gemerkt.zeit; }
+        else {
+          const [a, b] = await Promise.all([holeText(CELESTRAK + "stations", 15), holeText(CELESTRAK + "visual", 15)]);
+          liste = kurzSaetze(csvLesen(a).concat(csvLesen(b)));
+          speicher.schreib("sus.kern2", { zeit: jetzt, daten: liste });
+        }
+        const neu = bahnUebernehmen(liste);
+        if (neu.length) {
+          takter.postMessage({ typ: "daten", sats: neu });
+          vorher.postMessage({ typ: "daten", sats: neu });
+          issPaesse = null; nachtListe = null;
+          vorhersagenStarten();
+        }
+        stand.browser = zeit;
+      } catch { /* kein Zugriff */ }
+    }
+    // 2) alle aktiven Satelliten
+    if (alleGeladen && jetzt - stand.erzeugt > 24 * 3600000) {
+      let k = await ablage.lies("aktiv");
+      if (!k || jetzt - k.zeit > 24 * 3600000) {
+        if (jetzt - (speicher.lies("sus.aktivVersuch", 0) || 0) > 3600000) {
+          speicher.schreib("sus.aktivVersuch", jetzt);
+          try {
+            const liste = kurzSaetze(csvLesen(await holeText(CELESTRAK + "active", 120)));
+            if (liste.length > 5000) { k = { zeit: jetzt, daten: liste }; await ablage.schreib("aktiv", k); }
+          } catch { /* kein Zugriff */ }
+        }
+      }
+      if (k && k.daten) {
+        const neu = bahnUebernehmen(k.daten);
+        if (neu.length) await frage(takter, { typ: "daten", sats: neu });
+        stand.browserAlle = k.zeit;
+      }
+    }
+  } finally {
+    auffrischenLaeuft = false;
+    datenInfo();
+  }
+  const alter = (Date.now() - neuesteEpoche()) / 3600000;
+  if (alter > 72) melde(`Die Bahndaten sind ${Math.round(alter / 24)} Tage alt – Positionen können ungenau sein.`, 8);
+}
+setInterval(() => { if (datenDa && !document.hidden) standPruefen(); }, 30 * 60000);
 
 function datenInfo() {
   const n = sats.length;
   let t = `${zahl(n)} Objekte geladen${E.alle ? "" : " (nur helle Satelliten und Raumstationen)"}.`;
-  if (stand && stand.erzeugt) t += ` Bahndaten aufbereitet am ${datum(stand.erzeugt)} um ${uhr(stand.erzeugt)} Uhr (vor ${alterText(stand.erzeugt)}).`;
-  if (stand && stand.bahndaten_quelle) t += ` Quelle: ${stand.bahndaten_quelle}.`;
-  if (stand && stand.browser) t += ` Raumstationen und helle Satelliten zusätzlich um ${uhr(stand.browser)} Uhr direkt von CelesTrak aktualisiert${stand.browserAlle ? ", alle anderen auch" : ""}.`;
+  const ep = neuesteEpoche();
+  if (ep) t += ` Neueste Bahndaten (Raumstationen, helle Satelliten) vom ${datum(ep)}, ${uhr(ep)} Uhr.`;
+  if (stand && stand.browser) t += ` Zuletzt um ${uhr(stand.browser)} Uhr direkt bei CelesTrak nachgesehen.`;
+  if (stand && stand.erzeugt) t += ` Datenstand der Seite: ${datum(stand.erzeugt)}${stand.browserAlle ? `, alle übrigen Satelliten aktualisiert am ${datum(stand.browserAlle)} um ${uhr(stand.browserAlle)} Uhr` : ""}.`;
   $("#daten-info").textContent = t;
 }
 
@@ -416,7 +481,7 @@ function taktAnfordern(sofort = false) {
   taktLaeuft = true;
   takter.postMessage({ typ: "takt", t: Date.now() + 100 });
 }
-document.addEventListener("visibilitychange", () => { if (!document.hidden) taktAnfordern(true); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { taktAnfordern(true); if (datenDa) standPruefen(); } });
 
 function taktFertig(m) {
   taktLaeuft = false;

@@ -61,6 +61,7 @@ export function relativ(ms, jetzt = Date.now()) {
 export function alterText(ms, jetzt = Date.now()) {
   const h = (jetzt - ms) / 3600000;
   if (h < 1) return "weniger als 1 Stunde";
+  if (h < 1.5) return "1 Stunde";
   if (h < 48) return `${Math.round(h)} Stunden`;
   return `${Math.round(h / 24)} Tagen`;
 }

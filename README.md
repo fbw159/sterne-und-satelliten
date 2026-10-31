@@ -18,7 +18,7 @@ Welche Satelliten fliegen gerade über mir – und welche davon kann ich sehen? 
 ## Wie es funktioniert
 
 - Die Positionen werden im Browser laufend aus den Bahndaten berechnet (SGP4 mit satellite.js, in einem Web Worker). Zwischen den Rechenschritten wird die Bewegung im Grafikprozessor fortgeschrieben – deshalb bewegen sich die Satelliten flüssig in Echtzeit.
-- Eine GitHub Action holt alle zwei Stunden frische Bahndaten von CelesTrak, bereitet sie auf (`tools/daten_bauen.py`) und veröffentlicht die Seite neu. Ins Repository wird dabei nichts zurückgeschrieben.
+- Frische Bahndaten holt sich die Seite selbst direkt bei CelesTrak: Raumstationen und helle Satelliten, sobald ihre Daten älter als 6 Stunden sind (höchstens alle 2 Stunden), alle übrigen einmal am Tag (im Browser zwischengespeichert). Der Ordner `data/` im Repository ist der Startstand; er wird mit `tools/daten_bauen.py` erneuert.
 - Rechnungen geprüft gegen Skyfield: Richtung und Höhe auf etwa 0,003°, Überflugzeiten auf etwa 2 Sekunden, Sonnenlicht ja/nein ohne Abweichung.
 - Die Helligkeit ist eine Schätzung (Standardhelligkeit, Entfernung, Phasenwinkel, Dunst nahe am Horizont).
 
@@ -34,8 +34,8 @@ Welche Satelliten fliegen gerade über mir – und welche davon kann ich sehen? 
 | `js/himmel.js`, `js/zeigen.js` | Himmelskarte und Zeige-Modus |
 | `js/steckbrief.js`, `js/texte.js` | Steckbrief und Texte |
 | `js/magvar.js` | Missweisung (World Magnetic Model 2025) |
-| `data/` | Bahndaten, Katalog, Sterne (wird von der Action erneuert) |
-| `tools/daten_bauen.py` | holt und bereitet die Bahndaten auf |
+| `data/` | Startstand der Bahndaten, Katalog, Helligkeiten, Sterne |
+| `tools/daten_bauen.py` | holt und bereitet die Bahndaten für `data/` auf (CelesTrak, SATCAT, Helligkeiten) |
 | `lib/` | three.js, satellite.js und die Lizenzen (`lib/LIZENZEN.md`) |
 
 ## Quellen
