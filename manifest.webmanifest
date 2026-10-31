@@ -1,0 +1,16 @@
+{
+  "name": "Satelliten über mir",
+  "short_name": "Satelliten",
+  "description": "Welche Satelliten fliegen gerade über mir? 3D-Globus mit ISS, Sichtbarkeit und Zeige-Modus.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05070d",
+  "theme_color": "#05070d",
+  "icons": [
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

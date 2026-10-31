@@ -1,0 +1,208 @@
+// Texte für den Steckbrief: Länder, Startplätze, Objektarten und Wissenswertes zu bekannten Satelliten.
+
+export const LAND = {
+  US: "USA", PRC: "China", UK: "Großbritannien", CIS: "Russland (früher Sowjetunion)", TBD: "noch nicht bekannt",
+  JPN: "Japan", IT: "Italien", SKOR: "Südkorea", NKOR: "Nordkorea", IND: "Indien", FR: "Frankreich", GER: "Deutschland",
+  ESA: "Europäische Weltraumorganisation (ESA)", SPN: "Spanien", CA: "Kanada", TURK: "Türkei", SES: "SES (Luxemburg)",
+  ITSO: "Intelsat", O3B: "O3b (SES)", AUS: "Australien", EUTE: "Eutelsat", FIN: "Finnland", ARGN: "Argentinien",
+  GLOB: "Globalstar", ROC: "Taiwan", UAE: "Vereinigte Arabische Emirate", NOR: "Norwegen", GREC: "Griechenland",
+  ISRA: "Israel", SAUD: "Saudi-Arabien", POL: "Polen", BRAZ: "Brasilien", IM: "Inmarsat", ORB: "Orbcomm",
+  SING: "Singapur", IRAN: "Iran", LUXE: "Luxemburg", POR: "Portugal", BEL: "Belgien", AB: "Arabsat",
+  INDO: "Indonesien", EUME: "EUMETSAT (Europa)", NETH: "Niederlande", SWED: "Schweden", SWTZ: "Schweiz",
+  DEN: "Dänemark", AUT: "Österreich", CZE: "Tschechien", MEX: "Mexiko", THAI: "Thailand", MALA: "Malaysia",
+  PAKI: "Pakistan", EGYP: "Ägypten", ALG: "Algerien", NIG: "Nigeria", KAZ: "Kasachstan", UKR: "Ukraine",
+  VTNM: "Vietnam", PHIL: "Philippinen", CHLE: "Chile", PER: "Peru", COL: "Kolumbien", ISS: "ISS-Partner",
+  NATO: "NATO", EUTL: "Eutelsat", RWA: "Ruanda", KEN: "Kenia", ETH: "Äthiopien", SAFR: "Südafrika",
+  HUN: "Ungarn", LTU: "Litauen", EST: "Estland", LAOS: "Laos", NPL: "Nepal", BGD: "Bangladesch", BOL: "Bolivien",
+  ECU: "Ecuador", URY: "Uruguay", TMMC: "Turkmenistan", AZER: "Aserbaidschan", ASRA: "Österreich",
+  QAT: "Katar", BHR: "Bahrain", KWT: "Kuwait", OMAN: "Oman", JOR: "Jordanien", TUN: "Tunesien", MA: "Marokko",
+  GHA: "Ghana", SVN: "Slowenien", SVK: "Slowakei", ROM: "Rumänien", BUL: "Bulgarien", IRL: "Irland",
+  ISL: "Island", NZ: "Neuseeland", ESRO: "ESRO (Europa)", FGER: "Frankreich/Deutschland", ESA_: "ESA",
+  ITU: "ITU", IRID: "Iridium", SEAL: "Sea Launch",
+};
+
+export const STARTPLATZ = {
+  AFETR: "Cape Canaveral (Florida, USA)", AFWTR: "Vandenberg (Kalifornien, USA)", JSC: "Jiuquan (China)",
+  FRGUI: "Kourou (Französisch-Guayana)", TYMSC: "Baikonur (Kasachstan)", VOSTO: "Wostotschny (Russland)",
+  TAISC: "Taiyuan (China)", WSC: "Wenchang (China)", XICLF: "Xichang (China)", PLMSC: "Plessezk (Russland)",
+  SRILR: "Sriharikota (Indien)", RLLB: "Mahia (Neuseeland)", YSLA: "Gelbes Meer (China, vom Schiff)",
+  DLS: "Dombarowski (Russland)", TANSC: "Tanegashima (Japan)", NSC: "Naro (Südkorea)", SEAL: "Sea Launch (Pazifik)",
+  STARB: "Starbase (Texas, USA)", SCSLA: "Südchinesisches Meer (vom Schiff)", ERAS: "vom Flugzeug aus gestartet",
+  KSCUT: "Uchinoura (Japan)", WLPIS: "Wallops Island (Virginia, USA)", ANDSP: "Andøya (Norwegen)",
+  WRAS: "Woomera (Australien)", WOMRA: "Woomera (Australien)", KODAK: "Kodiak (Alaska, USA)",
+  SEMLS: "Semnan (Iran)", SMTS: "Shahrud (Iran)", YUN: "Sohae (Nordkorea)", JJSLA: "vor Jeju (Südkorea, vom Meer)",
+  KYMSC: "Kapustin Jar (Russland)", HGSTR: "Hammaguira (Algerien)", SNMLP: "San Marco (Kenia)",
+  PKMTR: "Pacific Missile Range (Hawaii, USA)", OREN: "Jasny (Russland)", SVOB: "Swobodny (Russland)",
+  KWAJ: "Kwajalein (Marshallinseln)", SUBL: "von einem U-Boot", PMRF: "Kauai (Hawaii, USA)",
+  ALCLC: "Alcântara (Brasilien)", SADOL: "von einem U-Boot", KYMTR: "Kapustin Jar (Russland)",
+  SCSLB: "Südchinesisches Meer (vom Schiff)", BOS: "Boca Chica (Texas, USA)", SPKII: "Spaceport America (USA)",
+};
+
+export const ART = { PAY: "Satellit (Nutzlast)", "R/B": "Raketenstufe", DEB: "Trümmerteil", UNK: "unbekannt" };
+export const BETRIEB = {
+  "+": "in Betrieb", "-": "außer Betrieb", P: "teilweise in Betrieb", B: "in Reserve", S: "Ersatz in Bereitschaft",
+  X: "verlängerte Mission", D: "verglüht", "?": "unbekannt", "": "unbekannt",
+};
+
+export const KAT_TEXT = {
+  iss: "",
+  station: "Teil einer Raumstation oder ein Raumschiff, das Menschen oder Fracht zu einer Station bringt.",
+  starlink: "Starlink ist das Satelliten-Internet von SpaceX. Viele tausend flache Satelliten kreisen in rund 340 bis 570 km Höhe. Kurz nach dem Start fliegen sie wie eine Perlenkette hintereinander – dieser „Starlink-Zug“ ist manchmal mit bloßem Auge zu sehen. Später sind sie meist zu schwach dafür.",
+  internet: "Gehört zu einem der neuen Satellitenschwärme für Internet aus dem All, zum Beispiel OneWeb, Amazon Kuiper oder die chinesischen Netze Qianfan und Guowang.",
+  navi: "Ein Navigationssatellit. Aus den Signalen von mindestens vier solcher Satelliten berechnet dein Handy seine Position. Die meisten kreisen in rund 20.000 km Höhe – viel zu weit weg, um sie mit bloßem Auge zu sehen.",
+  wetter: "Ein Wettersatellit. Er liefert Bilder von Wolken und misst Temperatur und Feuchte für die Wettervorhersage.",
+  erde: "Ein Erdbeobachtungssatellit. Er fotografiert oder vermisst die Erde – für Karten, Landwirtschaft, Klimaforschung und Katastrophenhilfe.",
+  wissen: "Ein Satellit für die Forschung oder zum Erproben neuer Technik.",
+  militaer: "Ein militärischer Satellit, zum Beispiel zur Aufklärung, Frühwarnung oder Nachrichtenübertragung. Genaue Aufgaben werden meist nicht veröffentlicht.",
+  funk: "Ein Kommunikationssatellit: für Telefon, Fernsehen, Internet, Datenfunk oder Amateurfunk.",
+  stufe: "Eine ausgebrannte Raketenstufe. Sie hat einen Satelliten ins All gebracht und kreist seitdem selbst um die Erde. Viele dieser Stufen sind groß und gut zu sehen. Weil sie sich überschlagen, blinken sie oft.",
+  sonst: "",
+};
+
+// Wissenswertes zu einzelnen Objekten. Treffer über NORAD-Nummer (id) oder Namensanfang (name).
+// wiki = Suchbegriff für die deutsche Wikipedia
+const BEKANNT = [
+  { id: 25544, titel: "Internationale Raumstation (ISS)", wiki: "Internationale Raumstation",
+    text: "Die ISS ist das größte Bauwerk im All: etwa so groß wie ein Fußballfeld und rund 420 Tonnen schwer. Seit November 2000 leben dort ständig Menschen. Sie umrundet die Erde in gut 90 Minuten in rund 400 km Höhe. Gebaut und betrieben wird sie von den USA, Russland, Europa (ESA), Japan und Kanada. Am Himmel ist sie oft heller als jeder Stern – nur Mond und Venus leuchten heller." },
+  { id: 48274, titel: "Chinesische Raumstation Tiangong", wiki: "Tiangong (Raumstation)",
+    text: "Tiangong heißt „Himmelspalast“. Das Kernmodul Tianhe ist seit 2021 im All, 2022 kamen die Labormodule Wentian und Mengtian dazu. Meist leben drei Raumfahrer an Bord. Auch diese Station ist gut mit bloßem Auge zu sehen." },
+  { name: "CSS (", titel: "Modul der chinesischen Raumstation", wiki: "Tiangong (Raumstation)",
+    text: "Ein Modul der chinesischen Raumstation Tiangong. Es ist fest mit der Station verbunden und fliegt mit ihr." },
+  { name: "ISS (", titel: "Modul der ISS", wiki: "Internationale Raumstation",
+    text: "Ein Modul der Internationalen Raumstation. Es ist fest mit der Station verbunden und fliegt mit ihr." },
+  { id: 20580, titel: "Hubble-Weltraumteleskop", wiki: "Hubble-Weltraumteleskop",
+    text: "Das Hubble-Weltraumteleskop ist seit 1990 im All. Es ist 13 Meter lang und hat einige der bekanntesten Bilder des Weltalls aufgenommen. Astronauten haben es fünfmal repariert und verbessert. Es kreist in gut 500 km Höhe und ist mit bloßem Auge zu sehen, wenn es günstig steht." },
+  { id: 27386, titel: "Envisat", wiki: "Envisat",
+    text: "Envisat war der große Umweltsatellit der ESA, gut 8 Tonnen schwer. Seit der Funkkontakt 2012 abriss, treibt er steuerlos im All – einer der größten Brocken Weltraumschrott auf niedriger Bahn." },
+  { id: 25994, titel: "Terra", wiki: "Terra (Satellit)",
+    text: "Terra ist ein Erdbeobachtungssatellit der NASA aus dem Jahr 1999. Er misst unter anderem Wolken, Brände, Schnee, Eis und wie viel Sonnenstrahlung die Erde aufnimmt und wieder abgibt." },
+  { id: 27424, titel: "Aqua", wiki: "Aqua (Satellit)",
+    text: "Aqua ist ein NASA-Satellit aus dem Jahr 2002. Er erforscht den Wasserkreislauf der Erde: Wolken, Regen, Meereis und die Temperatur der Meere." },
+  { name: "LANDSAT", titel: "Landsat", wiki: "Landsat",
+    text: "Landsat-Satelliten fotografieren seit 1972 die gesamte Landfläche der Erde. So entstand die längste Bildreihe unseres Planeten aus dem All – man sieht darin wachsende Städte, schrumpfende Gletscher und gerodete Wälder." },
+  { name: "SENTINEL", titel: "Sentinel (Copernicus)", wiki: "Copernicus Sentinel",
+    text: "Die Sentinel-Satelliten gehören zu Copernicus, dem Erdbeobachtungsprogramm der EU. Sie beobachten Land, Meere und Luft. Die Daten sind für alle frei nutzbar." },
+  { name: "METOP", titel: "MetOp", wiki: "MetOp",
+    text: "Europäischer Wettersatellit (EUMETSAT) auf einer Bahn über die Pole. Seine Messungen gehören zu den wichtigsten für die Wettervorhersage in Europa." },
+  { name: "METEOSAT", titel: "Meteosat", wiki: "Meteosat",
+    text: "Europäischer Wettersatellit, der in 36.000 km Höhe über dem Äquator steht und sich mit der Erde dreht. Von solchen Satelliten stammen die Wolkenbilder im Wetterbericht." },
+  { name: "MTG-", titel: "Meteosat Third Generation", wiki: "Meteosat Third Generation",
+    text: "Die neueste Generation der europäischen Meteosat-Wettersatelliten in 36.000 km Höhe. Ein Teil dieser Satelliten erkennt sogar Blitze." },
+  { name: "NOAA ", titel: "NOAA-Wettersatellit", wiki: "National Oceanic and Atmospheric Administration",
+    text: "Wettersatellit der amerikanischen Wetter- und Ozeanbehörde NOAA auf einer Bahn über die Pole." },
+  { name: "METEOR-M", titel: "Meteor-M", wiki: "Meteor-M",
+    text: "Russischer Wettersatellit. Seine Bilder lassen sich mit einfacher Funkausrüstung selbst empfangen." },
+  { name: "GOES ", titel: "GOES", wiki: "Geostationary Operational Environmental Satellite",
+    text: "Amerikanischer Wettersatellit in 36.000 km Höhe, der Nord- und Südamerika im Blick hat." },
+  { name: "FENGYUN", titel: "Fengyun", wiki: "Fengyun",
+    text: "Chinesischer Wettersatellit. Fengyun heißt „Wind und Wolken“." },
+  { name: "STARLINK", titel: "Starlink", wiki: "Starlink",
+    text: "Starlink-Satelliten werden nach einigen Jahren absichtlich abgesenkt und verglühen dann in der Atmosphäre. So bleibt kein Schrott zurück." },
+  { name: "ONEWEB", titel: "OneWeb", wiki: "OneWeb",
+    text: "Eutelsat OneWeb betreibt rund 650 Internet-Satelliten in etwa 1.200 km Höhe – deutlich höher als Starlink und daher am Himmel schwächer." },
+  { name: "KUIPER", titel: "Amazon Kuiper", wiki: "Projekt Kuiper",
+    text: "Satelliten-Internet des Konzerns Amazon. Geplant sind mehr als 3.000 Satelliten." },
+  { name: "QIANFAN", titel: "Qianfan", wiki: "Qianfan",
+    text: "Qianfan („Tausend Segel“) ist ein chinesisches Satelliten-Internet. Geplant sind über 10.000 Satelliten." },
+  { name: "HULIANWANG", titel: "Guowang", wiki: "Guowang",
+    text: "Guowang („Staatsnetz“) ist das chinesische Satelliten-Internet von China SatNet. Geplant sind rund 13.000 Satelliten." },
+  { name: "IRIDIUM", titel: "Iridium", wiki: "Iridium (Kommunikationssystem)",
+    text: "Iridium ermöglicht Satellitentelefone überall auf der Erde, auch an den Polen. 66 aktive Satelliten kreisen in rund 780 km Höhe. Die alte Iridium-Generation war für kurze, sehr helle Lichtblitze bekannt, die „Iridium-Flares“." },
+  { name: "GLOBALSTAR", titel: "Globalstar", wiki: "Globalstar",
+    text: "Globalstar-Satelliten verbinden Satellitentelefone und Notrufsender – auch die Notruf-Funktion mancher Handys läuft darüber." },
+  { name: "ORBCOMM", titel: "Orbcomm", wiki: "Orbcomm",
+    text: "Orbcomm-Satelliten übertragen kleine Datenmengen, zum Beispiel Standortmeldungen von Containern, Lkw und Schiffen." },
+  { name: "NAVSTAR", titel: "GPS", wiki: "Global Positioning System",
+    text: "Ein Satellit des amerikanischen GPS. Rund 30 dieser Satelliten kreisen in etwa 20.200 km Höhe und umrunden die Erde zweimal am Tag." },
+  { name: "GPS ", titel: "GPS", wiki: "Global Positioning System",
+    text: "Ein Satellit des amerikanischen GPS. Rund 30 dieser Satelliten kreisen in etwa 20.200 km Höhe und umrunden die Erde zweimal am Tag." },
+  { contains: "GALILEO", titel: "Galileo", wiki: "Galileo (Satellitennavigation)",
+    text: "Ein Satellit von Galileo, dem europäischen Navigationssystem. Die Satelliten kreisen in rund 23.200 km Höhe. Dein Handy nutzt sie zusammen mit GPS." },
+  { contains: "GLONASS", titel: "GLONASS", wiki: "GLONASS",
+    text: "Ein Satellit von GLONASS, dem russischen Navigationssystem, in rund 19.100 km Höhe." },
+  { name: "BEIDOU", titel: "BeiDou", wiki: "BeiDou",
+    text: "Ein Satellit von BeiDou, dem chinesischen Navigationssystem. Ein Teil der Satelliten kreist in 21.500 km Höhe, ein anderer Teil steht in 36.000 km Höhe." },
+  { name: "SOYUZ", titel: "Sojus", wiki: "Sojus (Raumschiff)",
+    text: "Ein russisches Sojus-Raumschiff. Es bringt Raumfahrer zur ISS und nach etwa einem halben Jahr wieder zur Erde zurück." },
+  { name: "PROGRESS", titel: "Progress", wiki: "Progress (Raumschiff)",
+    text: "Ein russischer Raumfrachter. Er bringt Treibstoff, Wasser, Luft und Vorräte zur ISS und verglüht danach mit Abfall beladen in der Atmosphäre." },
+  { name: "CREW DRAGON", titel: "Crew Dragon", wiki: "Dragon 2",
+    text: "Das Raumschiff Crew Dragon von SpaceX bringt Astronauten zur ISS und zurück." },
+  { name: "DRAGON", titel: "Dragon (Fracht)", wiki: "Dragon 2",
+    text: "Die Frachtversion des Dragon-Raumschiffs von SpaceX. Sie bringt Versorgung und Experimente zur ISS – und als eines der wenigen Raumschiffe auch Fracht zurück zur Erde." },
+  { name: "CYGNUS", titel: "Cygnus", wiki: "Cygnus (Raumfahrzeug)",
+    text: "Cygnus ist ein amerikanischer Raumfrachter, der die ISS versorgt." },
+  { name: "HTV", titel: "HTV", wiki: "HTV-X",
+    text: "Ein japanischer Raumfrachter für die Versorgung der ISS." },
+  { name: "SHENZHOU", titel: "Shenzhou", wiki: "Shenzhou (Raumschiff)",
+    text: "Ein chinesisches Raumschiff. Es bringt Raumfahrer zur Station Tiangong und zurück." },
+  { name: "SZ-", titel: "Shenzhou", wiki: "Shenzhou (Raumschiff)",
+    text: "Teil eines chinesischen Shenzhou-Raumschiffs." },
+  { name: "TIANZHOU", titel: "Tianzhou", wiki: "Tianzhou",
+    text: "Ein chinesischer Raumfrachter, der die Station Tiangong mit Treibstoff und Vorräten versorgt." },
+  { name: "SL-16 R/B", titel: "Zenit-Oberstufe", wiki: "Zenit (Rakete)",
+    text: "Die zweite Stufe einer Zenit-Rakete: gut 10 Meter lang, fast 4 Meter dick und rund 9 Tonnen schwer. Diese Stufen gehören zu den größten Brocken in niedriger Bahn und sind oft gut zu sehen." },
+  { name: "SL-8 R/B", titel: "Kosmos-3M-Stufe", wiki: "Kosmos (Rakete)",
+    text: "Die Oberstufe einer sowjetischen Kosmos-3M-Rakete." },
+  { name: "SL-3 R/B", titel: "Wostok-Stufe", wiki: "Wostok (Rakete)",
+    text: "Die Oberstufe einer sowjetischen Wostok-Rakete." },
+  { name: "SL-14 R/B", titel: "Zyklon-Stufe", wiki: "Zyklon (Rakete)",
+    text: "Die Oberstufe einer sowjetischen Zyklon-3-Rakete." },
+  { name: "CZ-", titel: "Langer-Marsch-Stufe", wiki: "Langer Marsch (Rakete)",
+    text: "Eine Stufe einer chinesischen Rakete vom Typ „Langer Marsch“ (Chang Zheng)." },
+  { name: "H-2A R/B", titel: "H-IIA-Stufe", wiki: "H-IIA",
+    text: "Die Oberstufe einer japanischen H-IIA-Rakete." },
+  { name: "ARIANE", titel: "Ariane-Stufe", wiki: "Ariane (Rakete)",
+    text: "Eine Stufe einer europäischen Ariane-Rakete." },
+  { name: "FALCON 9", titel: "Falcon-9-Stufe", wiki: "Falcon 9",
+    text: "Die Oberstufe einer Falcon-9-Rakete von SpaceX." },
+  { name: "ATLAS", titel: "Atlas", wiki: "Atlas (Rakete)", text: "Eine Stufe einer amerikanischen Atlas-Rakete." },
+  { name: "DELTA", titel: "Delta", wiki: "Delta (Rakete)", text: "Eine Stufe einer amerikanischen Delta-Rakete." },
+  { name: "SPACEMOBILE", titel: "AST SpaceMobile", wiki: "AST SpaceMobile",
+    text: "Satellit von AST SpaceMobile mit einer riesigen ausklappbaren Antennenfläche. Er soll normale Handys direkt aus dem All versorgen und ist deshalb ungewöhnlich hell." },
+  { name: "BLUEBIRD", titel: "AST SpaceMobile", wiki: "AST SpaceMobile",
+    text: "Satellit von AST SpaceMobile mit einer riesigen ausklappbaren Antennenfläche. Er soll normale Handys direkt aus dem All versorgen und ist deshalb ungewöhnlich hell." },
+  { name: "TDRS", titel: "TDRS", wiki: "Tracking and Data Relay Satellite",
+    text: "Relaissatellit der NASA in 36.000 km Höhe. Er leitet Funk und Daten zwischen Raumschiffen wie der ISS und den Bodenstationen weiter." },
+  { name: "ASTRA", titel: "ASTRA", wiki: "Astra (Satellit)",
+    text: "Fernsehsatellit von SES. Die ASTRA-Satelliten auf 19,2° Ost versorgen viele Haushalte in Deutschland mit Fernsehen über die Schüssel." },
+  { name: "EUTELSAT", titel: "Eutelsat", wiki: "Eutelsat", text: "Kommunikationssatellit von Eutelsat für Fernsehen und Datenübertragung." },
+  { name: "INTELSAT", titel: "Intelsat", wiki: "Intelsat", text: "Kommunikationssatellit von Intelsat in 36.000 km Höhe." },
+  { name: "INMARSAT", titel: "Inmarsat", wiki: "Inmarsat", text: "Kommunikationssatellit von Inmarsat – vor allem für Schiffe und Flugzeuge." },
+  { name: "FLOCK", titel: "Planet „Dove“", wiki: "Planet Labs",
+    text: "Ein „Dove“-Kleinsatellit von Planet Labs, etwa so groß wie ein Schuhkarton. Zusammen fotografieren diese Satelliten fast täglich die gesamte Landfläche der Erde." },
+  { name: "LEMUR", titel: "Spire Lemur", wiki: "Spire Global",
+    text: "Kleinsatellit von Spire. Er sammelt Wetterdaten und empfängt die Positionsmeldungen von Schiffen und Flugzeugen." },
+  { name: "ICEYE", titel: "ICEYE", wiki: "ICEYE",
+    text: "Radarsatellit der finnischen Firma ICEYE. Radar sieht auch durch Wolken und bei Nacht." },
+  { name: "ISS OBJECT", titel: "Kleinsatellit von der ISS", wiki: "Internationale Raumstation",
+    text: "Ein Kleinsatellit, der von der ISS aus ins All entlassen wurde. Er sinkt langsam ab und verglüht nach einiger Zeit." },
+  { name: "YAOGAN", titel: "Yaogan", wiki: "Yaogan",
+    text: "Chinesischer Aufklärungssatellit. Yaogan heißt „Fernerkundung“." },
+  { name: "USA ", titel: "US-Militär", wiki: "National Reconnaissance Office",
+    text: "Ein Satellit des US-Militärs oder des Aufklärungsdienstes NRO. Was er genau tut, ist geheim." },
+  { name: "COSMOS", titel: "Kosmos", wiki: "Kosmos (Satellit)",
+    text: "„Kosmos“ ist der Sammelname für sehr viele, meist militärische Satelliten der Sowjetunion und Russlands." },
+  { name: "TIANGONG", titel: "Tiangong", wiki: "Tiangong (Raumstation)", text: "Teil der chinesischen Raumstation." },
+];
+
+export function bekannt(id, name) {
+  const n = (name || "").toUpperCase();
+  for (const b of BEKANNT) {
+    if (b.id != null && b.id === id) return b;
+  }
+  for (const b of BEKANNT) {
+    if (b.name && n.startsWith(b.name)) return b;
+    if (b.contains && n.includes(b.contains)) return b;
+  }
+  return null;
+}
+
+/** Name hübscher machen (Großbuchstaben aus dem Katalog) */
+export function anzeigeName(name) {
+  if (!name) return "";
+  if (name === "ISS (ZARYA)") return "ISS";
+  if (name === "CSS (TIANHE)") return "Tiangong (CSS)";
+  if (name === "HST") return "Hubble (HST)";
+  return name;
+}
