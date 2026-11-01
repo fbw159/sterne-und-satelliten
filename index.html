@@ -165,6 +165,13 @@
       <input type="search" id="zeigen-suchfeld" placeholder="Sternbild, Planet, Stern …" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Suchbegriff">
       <button class="rund klein hell" id="zeigen-suche-zu" aria-label="Suche schließen"><svg><use href="#i-zu"/></svg></button>
     </div>
+    <div class="such-filter" id="zeigen-suchfilter" role="group" aria-label="Nur diese Art zeigen">
+      <button data-gruppe="alle" aria-pressed="true"><span>Alle</span></button>
+      <button data-gruppe="2" aria-pressed="false"><span>Sternbilder</span><small></small></button>
+      <button data-gruppe="3" aria-pressed="false"><span>Sterne</span><small></small></button>
+      <button data-gruppe="0" aria-pressed="false"><span>Planeten &amp; Mond</span><small></small></button>
+      <button data-gruppe="1" aria-pressed="false"><span>Satelliten</span><small></small></button>
+    </div>
     <ol class="such-liste" id="zeigen-suchliste"></ol>
   </div>
   <div class="zeigen-feld" id="zeigen-kompass-feld" hidden>
@@ -220,7 +227,7 @@
     <p><b>Infobox:</b> Tippe einen Satelliten an – eine Infobox zeigt, was er ist, wofür er da ist, wer ihn betreibt, seit wann er im All ist, wo er gerade ist und wann er wieder über dich fliegt. Mit dem Pfeil klappst du sie klein, mit dem Kreuz schließt du sie.</p>
     <p><b>Überblick:</b> Der Knopf unten links zeigt alle Satelliten groß und in der Farbe ihrer Art. Darüber erscheint die Farbübersicht: Tippe auf eine Art, um sie aus- oder einzublenden.</p>
     <p><b>Farben:</b> <i class="punkt p-sichtbar"></i> gelb leuchtend = jetzt mit bloßem Auge zu sehen. <i class="punkt p-licht"></i> hell = von der Sonne angestrahlt. <i class="punkt p-schatten"></i> blass = im Erdschatten, also unsichtbar. Große Punkte stehen über deinem Horizont, kleine blasse sind woanders.</p>
-    <p><b>Himmel live:</b> Tippe auf „Himmel live“ und halte das Handy hoch wie zum Fotografieren. Du siehst den Himmel in der Richtung, in die das Handy zeigt – mit Sternen, Sternbildern, Planeten, Mond und Satelliten. Was du jetzt sehen kannst, ist hervorgehoben und steht unten unter „Jetzt zu sehen“. Tippe etwas an, um zu erfahren, was es ist, und auf „Hinführen“: Ein Pfeil führt dich hin, im Ziel wird das Fadenkreuz grün. Das Sternbild, auf das du gerade zeigst, wird hervorgehoben, und oben steht, wohin du schaust. Mit der Lupe suchst du ein Sternbild, einen Planeten oder Stern (auch „Großer Wagen“ oder „Plejaden“) und lässt dich direkt hinführen. Unten schaltest du Satelliten, Sternbilder und Planeten einzeln ein und aus.</p>
+    <p><b>Himmel live:</b> Tippe auf „Himmel live“ und halte das Handy hoch wie zum Fotografieren. Du siehst den Himmel in der Richtung, in die das Handy zeigt – mit Sternen, Sternbildern, Planeten, Mond und Satelliten. Was du jetzt sehen kannst, ist hervorgehoben und steht unten unter „Jetzt zu sehen“. Tippe etwas an, um zu erfahren, was es ist, und auf „Hinführen“: Ein Pfeil führt dich hin, im Ziel wird das Fadenkreuz grün. Das Sternbild, auf das du gerade zeigst, wird hervorgehoben, und oben steht, wohin du schaust. Mit der Lupe suchst du ein Sternbild, einen Planeten oder Stern (auch „Großer Wagen“ oder „Plejaden“) und lässt dich direkt hinführen; die Knöpfe unter dem Suchfeld zeigen nur Sternbilder, nur Sterne, nur Planeten oder nur Satelliten. Unten schaltest du Satelliten, Sternbilder und Planeten einzeln ein und aus.</p>
     <p><b>Himmelskarte</b> (Reiter „Himmel“): Sie ist wie eine Karte, die vor dir auf dem Boden liegt – Norden oben, Osten rechts. Leg das Handy flach hin, Oberkante nach Norden, oder schalte den Kompass in der Ecke der Karte ein: Dann dreht sich die Karte von selbst richtig.</p>
     <p><b>Rotlicht:</b> Draußen im Dunkeln gewöhnen sich die Augen nach etwa 20 Minuten an die Nacht. Helles weißes Licht macht das sofort zunichte, rotes kaum. Der Knopf mit dem halben Kreis – oben in der Kopfzeile und in „Himmel live“ – schaltet überall auf Rot.</p>
     <p><b>Kompass:</b> Handys können einige Grad danebenliegen. Bewege das Handy ein paar Mal in Form einer liegenden Acht. Noch genauer: Kompass-Knopf, einen hellen Stern, Planeten oder den Mond in den Kreis nehmen und „Abgleichen“ tippen.</p>

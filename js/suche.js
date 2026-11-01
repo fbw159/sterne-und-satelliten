@@ -55,12 +55,13 @@ export function suchEintraege(HD, iss, sats = []) {
   return L;
 }
 
-/** Treffer für einen Suchbegriff, beste zuerst (null = kein Suchbegriff) */
-export function suchen(L, q) {
+/** Treffer für einen Suchbegriff, beste zuerst (null = kein Suchbegriff); gruppe = nur diese Art (0 Mond/Planeten, 1 Satelliten, 2 Sternbilder, 3 Sterne) */
+export function suchen(L, q, gruppe = null) {
   const nq = norm(q);
   if (!nq) return null;
   const out = [];
   for (const e of L) {
+    if (gruppe != null && e.gruppe !== gruppe) continue;
     let best = 0, via = null;
     for (const { n, k, t } of e.n) {
       const w = n === nq ? 4 : n.startsWith(nq) ? 3 : (" " + n).includes(" " + nq) ? 2 : nq.length >= 3 && n.includes(nq) ? 1 : 0;
@@ -72,7 +73,7 @@ export function suchen(L, q) {
   out.sort((a, b) => b.best - a.best || a.e.gruppe - b.e.gruppe || (a.e.rang ?? 9) - (b.e.rang ?? 9)
     || (a.e.mag ?? 9) - (b.e.mag ?? 9) || a.e.name.localeCompare(b.e.name, "de"));
   // über einen Beinamen gefunden: diesen dazuschreiben („Stier – Plejaden“)
-  return out.slice(0, 40).map((x) => (x.via && x.via.k >= 2 && x.e.gruppe === 2 ? { ...x.e, zusatz: x.via.t } : x.e));
+  return out.slice(0, gruppe == null ? 40 : 150).map((x) => (x.via && x.via.k >= 2 && x.e.gruppe === 2 ? { ...x.e, zusatz: x.via.t } : x.e));
 }
 
 /** Geht ein Punkt mit dieser Deklination für diese Breite nie auf? */

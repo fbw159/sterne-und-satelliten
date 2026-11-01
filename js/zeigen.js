@@ -85,7 +85,14 @@ export class Zeigen {
       if (ev.key === "Enter") { ev.preventDefault(); const t = this._sucheTreffer && this._sucheTreffer[0]; if (t) this._sucheWahl(t, true); }
       else if (ev.key === "Escape") this.sucheSchliessen();
     });
+    this.sucheFilter = ["alle", "0", "1", "2", "3"].includes(speicher.lies("sus.sucheFilter", "alle")) ? speicher.lies("sus.sucheFilter", "alle") : "alle";
+    $("zeigen-suchfilter").addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-gruppe]");
+      if (b) this._setzeFilter(b.dataset.gruppe);
+    });
     $("zeigen-suchliste").addEventListener("click", (ev) => {
+      const g = ev.target.closest("[data-filter]");
+      if (g) { this._setzeFilter(g.dataset.filter); return; }
       const b = ev.target.closest("[data-such]");
       const t = b && this._sucheTreffer ? this._sucheTreffer[Number(b.dataset.such)] : null;
       if (t) this._sucheWahl(t, b.dataset.art === "hin");
@@ -536,10 +543,16 @@ export class Zeigen {
     this.gewaehlt = null;
     document.getElementById("zeigen-info").hidden = true;
     document.getElementById("zeigen-suche").hidden = false;
+    this.el.classList.add("suche-auf");
+    const m = document.getElementById("meldung"); // eine alte Meldung würde die Filterknöpfe verdecken
+    if (m) m.hidden = true;
     const f = document.getElementById("zeigen-suchfeld");
     f.value = "";
     this._sucheListe = null; // neu aufbauen: Daten und Satelliten können sich geändert haben
+    this._sucheFilterZeigen();
     this._sucheZeichnen();
+    document.getElementById("zeigen-suchfilter").scrollLeft = 0;
+    this._filterInSicht();
     document.getElementById("zeigen-suchliste").scrollTop = 0;
     // am PC gleich lostippen; am Handy erst die Liste zeigen (die Tastatur ist nachts grell)
     if (!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches)) f.focus();
@@ -549,7 +562,35 @@ export class Zeigen {
     const el = document.getElementById("zeigen-suche");
     if (!el || el.hidden) return;
     el.hidden = true;
+    this.el.classList.remove("suche-auf");
     document.getElementById("zeigen-suchfeld").blur();
+  }
+
+  /** Suche auf eine Art beschränken: "alle" oder "0" … "3" (Gruppen wie in suche.js) */
+  _setzeFilter(g) {
+    this.sucheFilter = ["alle", "0", "1", "2", "3"].includes(g) ? g : "alle";
+    speicher.schreib("sus.sucheFilter", this.sucheFilter);
+    this._sucheFilterZeigen();
+    this._sucheZeichnen();
+    this._filterInSicht();
+    document.getElementById("zeigen-suchliste").scrollTop = 0;
+  }
+
+  /** gewählten Filterknopf ganz sichtbar machen (die Reihe lässt sich am Handy seitlich schieben) */
+  _filterInSicht() {
+    const reihe = document.getElementById("zeigen-suchfilter");
+    const b = reihe.querySelector('[aria-pressed="true"]');
+    if (!b || !reihe.clientWidth || reihe.scrollWidth <= reihe.clientWidth) return;
+    const r = reihe.getBoundingClientRect(), k = b.getBoundingClientRect();
+    if (k.left < r.left + 10) reihe.scrollLeft -= r.left + 12 - k.left;
+    else if (k.right > r.right - 22) reihe.scrollLeft += k.right - r.right + 26;
+  }
+
+  /** Filterknöpfe und Platzhalter passend zur gewählten Art */
+  _sucheFilterZeigen() {
+    for (const b of document.querySelectorAll("#zeigen-suchfilter [data-gruppe]")) b.setAttribute("aria-pressed", String(b.dataset.gruppe === this.sucheFilter));
+    const platz = { alle: "Sternbild, Planet, Stern …", 2: "Sternbild suchen, z. B. Orion", 3: "Stern suchen, z. B. Wega", 0: "Planet suchen, z. B. Jupiter", 1: "Satellit suchen, z. B. ISS" };
+    document.getElementById("zeigen-suchfeld").placeholder = platz[this.sucheFilter] || platz.alle;
   }
 
   _sucheWahl(t, hin) {
@@ -562,7 +603,7 @@ export class Zeigen {
   _sucheWo(e) {
     const d = this._objekt(e.o);
     if (!d) return esc(e.art);
-    if (d.el > 0) return `${esc(e.art)} · <b>im ${A.richtungLang(d.az)}, ${Math.round(d.el)}° hoch</b>`;
+    if (d.el > 0) return `${esc(e.art)} · <b>im ${A.richtungLang(d.az)}, ${d.el < 1 ? "knapp über dem Horizont" : `${Math.round(d.el)}° hoch`}</b>`;
     const b = this.opt.beobachter();
     if (b && (e.o.art === "planet" || e.o.art === "mond")) {
       const au = this.HD.aufUnter(e.o.art === "mond" ? "Moon" : e.o.id, b.lat, b.lon, Date.now());
@@ -578,22 +619,31 @@ export class Zeigen {
       const sichtbar = (this.opt.satelliten ? this.opt.satelliten() : []).filter((x) => x.sichtbar && !x.iss);
       this._sucheListe = suchEintraege(this.HD, iss, sichtbar);
       if (!this.HD.bereit) this.HD.laden().then(() => { this._sucheListe = null; if (this.sucheOffen) this._sucheZeichnen(); }).catch(() => {});
+      // Anzahl je Art an die Filterknöpfe
+      const anzahl = [0, 0, 0, 0];
+      for (const e of this._sucheListe) anzahl[e.gruppe]++;
+      for (const b of document.querySelectorAll("#zeigen-suchfilter [data-gruppe] small")) b.textContent = anzahl[Number(b.parentElement.dataset.gruppe)] || "";
     }
+    const filter = this.sucheFilter === "alle" ? null : Number(this.sucheFilter);
     const q = document.getElementById("zeigen-suchfeld").value;
-    const gefunden = suchen(this._sucheListe, q);
+    const gefunden = suchen(this._sucheListe, q, filter);
     let gruppen;
     if (gefunden) gruppen = [[null, gefunden]];
     else {
       // ohne Suchbegriff: alles zum Stöbern – was gerade über dem Horizont steht, zuerst
-      const L = this._sucheListe;
+      const L = this._sucheListe.filter((e) => filter == null || e.gruppe === filter);
       const oben = new Map(L.map((e) => { const d = this._objekt(e.o); return [e, d && d.el > 0 ? 1 : 0]; }));
       const mag = (e) => { if (e.o.art === "mond") return -12; const p = this.HD.planeten.find((x) => x.id === e.o.id); return p ? p.mag : (e.mag ?? 9); };
       const nachOben = (a, b) => oben.get(b) - oben.get(a);
+      const sb = L.filter((e) => e.gruppe === 2), st = L.filter((e) => e.gruppe === 3);
       gruppen = [
         ["Mond und Planeten", L.filter((e) => e.gruppe === 0).sort((a, b) => nachOben(a, b) || mag(a) - mag(b))],
         ["Satelliten", L.filter((e) => e.gruppe === 1)],
-        ["Sternbilder", L.filter((e) => e.gruppe === 2).sort((a, b) => nachOben(a, b) || (a.rang ?? 9) - (b.rang ?? 9) || a.name.localeCompare(b.name, "de"))],
-        ["Helle Sterne", L.filter((e) => e.gruppe === 3).sort((a, b) => nachOben(a, b) || a.mag - b.mag)],
+        // Sternbilder: bekannte zuerst, darunter die übrigen nach dem Alphabet
+        ["Sternbilder – jetzt über dem Horizont", sb.filter((e) => oben.get(e)).sort((a, b) => (a.rang ?? 9) - (b.rang ?? 9) || a.name.localeCompare(b.name, "de"))],
+        ["Sternbilder – unter dem Horizont", sb.filter((e) => !oben.get(e)).sort((a, b) => a.name.localeCompare(b.name, "de"))],
+        ["Helle Sterne – jetzt über dem Horizont", st.filter((e) => oben.get(e)).sort((a, b) => a.mag - b.mag)],
+        ["Helle Sterne – unter dem Horizont", st.filter((e) => !oben.get(e)).sort((a, b) => a.mag - b.mag)],
       ];
     }
     this._sucheTreffer = [];
@@ -606,7 +656,22 @@ export class Zeigen {
         html += `<li class="treffer"><button class="such-zeile" data-such="${k}"><span class="such-name">${esc(e.name)}${e.zusatz ? `<small>${esc(e.zusatz)}</small>` : ""}</span><span class="such-art">${this._sucheWo(e)}</span></button><button class="knopf knopf-hin" data-such="${k}" data-art="hin"><svg><use href="#i-pfeil"/></svg>Hinführen</button></li>`;
       }
     }
-    if (!this._sucheTreffer.length) html = `<li class="leer">${gefunden ? "Nichts gefunden. Versuch es mit dem deutschen oder lateinischen Namen." : "Sterndaten werden geladen …"}</li>`;
+    if (!this._sucheTreffer.length) {
+      const art = { 0: "Planeten", 1: "Satelliten", 2: "Sternbildern", 3: "Sternen" }[filter];
+      let t, knopf = "";
+      if (!gefunden) {
+        // nichts zum Stöbern: Sterndaten fehlen noch – oder gerade kein Satellit in der Liste
+        t = filter === 1 ? "Gerade ist kein Satellit in der Liste. Die ISS erscheint, sobald ihre Bahndaten geladen sind." : "Sterndaten werden geladen …";
+      } else if (art) {
+        const sonst = (suchen(this._sucheListe, q, null) || []).length;
+        t = `Unter den ${art} nichts gefunden.`;
+        if (sonst) {
+          t += ` Bei den anderen gibt es ${sonst === 1 ? "einen Treffer" : sonst >= 40 ? "viele Treffer" : `${sonst} Treffer`}.`;
+          knopf = `<button class="knopf" data-filter="alle">Alle zeigen</button>`;
+        } else t += " Versuch den deutschen oder lateinischen Namen.";
+      } else t = "Nichts gefunden. Versuch es mit dem deutschen oder lateinischen Namen.";
+      html = `<li class="leer">${t}${knopf}</li>`;
+    }
     document.getElementById("zeigen-suchliste").innerHTML = html;
   }
 

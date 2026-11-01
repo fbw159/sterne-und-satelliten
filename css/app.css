@@ -321,16 +321,47 @@ b { font-weight: 650; }
   .zeigen-leiste .pille svg { width: 16px; height: 16px; }
 }
 .zeigen-suche {
-  position: absolute; z-index: 3; left: 10px; right: 10px; top: calc(var(--sicher-oben) + 10px); max-width: 520px; margin: 0 auto;
-  max-height: calc(100dvh - var(--sicher-oben) - 24px); display: flex; flex-direction: column; overflow: hidden;
+  position: absolute; z-index: 3; left: 10px; right: 10px; top: calc(var(--sicher-oben) + 60px); max-width: 520px; margin: 0 auto;
+  max-height: calc(100dvh - var(--sicher-oben) - 72px); display: flex; flex-direction: column; overflow: hidden;
   border-radius: 16px; background: #0a0e1a; border: 1px solid var(--linie); box-shadow: 0 12px 40px rgba(0, 0, 0, .6);
 }
 .suche-kopf { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--linie); }
 .suche-kopf > svg { color: var(--leise); flex: none; }
 #zeigen-suchfeld { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font: inherit; font-size: 16px; padding: 6px 2px; }
 #zeigen-suchfeld::placeholder { color: rgba(200, 212, 236, .5); }
+/* „Text löschen“ im Suchfeld: gefüllter Kreis, damit es nicht wie „Suche schließen“ aussieht (und im Rotlicht nicht weiß leuchtet) */
+#zeigen-suchfeld::-webkit-search-cancel-button {
+  -webkit-appearance: none; appearance: none; width: 22px; height: 22px; margin: 0 4px 0 6px; cursor: pointer; border-radius: 50%;
+  background: rgba(200, 212, 236, .3) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7.5 7.5l9 9M16.5 7.5l-9 9' stroke='%230a0e1a' stroke-width='2.8' stroke-linecap='round'/%3E%3C/svg%3E") center / 15px no-repeat;
+}
+.such-filter {
+  display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--linie); overflow-x: auto; scrollbar-width: none; flex: none;
+  overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+  /* am Rand sanft ausblenden: zeigt, dass man seitlich weiterschieben kann */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 10px, #000 calc(100% - 22px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 10px, #000 calc(100% - 22px), transparent 100%);
+}
+.such-filter::-webkit-scrollbar { display: none; }
+.such-filter::after { content: ""; flex: none; width: 8px; }
+/* mit Maus: lieber umbrechen als seitlich schieben */
+@media (pointer: fine) {
+  .such-filter { flex-wrap: wrap; -webkit-mask-image: none; mask-image: none; }
+  .such-filter::after { display: none; }
+}
+/* am PC etwas breiter, dann passen alle Filterknöpfe in eine Reihe */
+@media (pointer: fine) and (min-width: 660px) { .zeigen-suche { max-width: 600px; } }
+/* solange die Suche offen ist: Untertitel einzeilig, damit er nicht unter der Suche verschwindet */
+.zeigen.suche-auf .zeigen-ziel { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.such-filter button {
+  flex: none; display: inline-flex; align-items: baseline; gap: 5px; padding: 6px 12px; border-radius: 15px; white-space: nowrap;
+  border: 1px solid var(--linie); background: var(--flaeche-2); color: var(--leise); font-size: 13.5px; font-weight: 600;
+}
+.such-filter button small { font-size: 11.5px; font-weight: 500; opacity: .8; }
+.such-filter button[aria-pressed="true"] { color: #fff; background: rgba(40, 70, 150, .75); border-color: rgba(150, 185, 255, .8); }
 .such-liste { list-style: none; margin: 0; padding: 2px 0 10px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .such-gruppe { padding: 12px 16px 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--leise); }
+.such-liste .leer { padding: 14px 16px 8px; line-height: 1.45; }
+.such-liste .leer .knopf { display: flex; margin-top: 10px; color: var(--text); }
 .such-liste .treffer { display: flex; align-items: center; gap: 6px; padding: 1px 10px 1px 6px; }
 .such-zeile { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; background: none; border: 0; padding: 7px 8px; border-radius: 10px; }
 .such-zeile:active { background: rgba(255, 255, 255, .06); }
@@ -384,10 +415,13 @@ b { font-weight: 650; }
 .zeigen.rot .gelb, .zeigen.rot b { color: #ff7a5a; }
 .zeigen.rot .zeigen-suche { background: #0c0000; border-color: rgba(255, 60, 40, .35); }
 .zeigen.rot #zeigen-suchfeld, .zeigen.rot .such-name, .zeigen.rot .suche-kopf > svg { color: #ff5a48; }
-.zeigen.rot .such-art, .zeigen.rot .such-gruppe, .zeigen.rot .such-name small, .zeigen.rot .such-art b { color: #d8473a; }
+.zeigen.rot .such-art, .zeigen.rot .such-gruppe, .zeigen.rot .such-name small, .zeigen.rot .such-art b, .zeigen.rot .such-liste .leer { color: #d8473a; }
 .zeigen.rot #zeigen-suchfeld::placeholder { color: rgba(255, 80, 64, .5); }
+.zeigen.rot #zeigen-suchfeld::-webkit-search-cancel-button { background-color: rgba(255, 70, 50, .55); }
 .zeigen.rot .suche-kopf { border-color: rgba(255, 60, 40, .3); }
 .zeigen.rot .such-zeile { background: none !important; border: 0 !important; }
+.zeigen.rot .such-filter { border-color: rgba(255, 60, 40, .3); }
+.zeigen.rot .such-filter button[aria-pressed="true"] { background: rgba(110, 10, 0, .7) !important; border-color: #ff5a48 !important; }
 /* Rotlicht für die übrige Seite */
 body.rotlicht #szene, body.rotlicht #marken, body.rotlicht #kopf, body.rotlicht #iss-chip, body.rotlicht #blatt,
 body.rotlicht .knopf-himmel, body.rotlicht dialog, body.rotlicht #meldung, body.rotlicht #lade,
