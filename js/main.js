@@ -7,6 +7,9 @@ import { bekannt, anzeigeName } from "./texte.js";
 import { Himmel } from "./himmel.js";
 import { Zeigen } from "./zeigen.js";
 import { missweisung } from "./magvar.js";
+import { HimmelDaten, astronomieLaden, PLANETEN } from "./himmelsdaten.js";
+import { infoHtml } from "./wasistdas.js";
+import { orteLaden, ortName } from "./orte.js";
 
 const ISS = 25544;
 const ERSATZ_ORT = { lat: 52.5163, lon: 13.3777, name: "Berlin" };
@@ -35,7 +38,6 @@ let B = null;              // Beobachter für Rechnungen im Hauptprogramm
 let reiter = "oben";
 let issPaesse = null;
 let nachtListe = null;
-let sterne = null, sternVektoren = null;
 let auswahlBahnHimmel = null;
 let letzteListe = 0;
 let zeigeBis = 150;
@@ -102,13 +104,14 @@ function globusOptionen() { return {
 globus.zeigeLinien = E.linien;
 globus.zeigeNamen = E.namen;
 globus.setzeFilter(E.filter);
-let bilderDa = false, datenDa = false, gestartet = false;
+let bilderDa = false, datenDa = false, gestartet = false, angeflogen = false;
 
 // ---------------------------------------------------------------- Blatt (unten) bzw. Leiste (rechts)
 const blatt = $("#blatt");
 function blattHoehe(h) {
   if (PC.matches) return;
   blatt.dataset.hoehe = h;
+  document.body.dataset.blatt = h;
   setTimeout(versatzAnpassen, 340);
   if (h !== "klein" && reiter === "oben" && !$("#seite-oben").hidden) listeZeichnen(true);
 }
@@ -193,7 +196,10 @@ function ortSetzen(lat, lon, quelle, genau = null) {
   ortText();
   issPaesse = null; nachtListe = null;
   if (datenDa) { vorhersagenStarten(); taktAnfordern(); }
-  if (gestartet) globus.zuMir();
+  if (gestartet) {
+    if (!angeflogen) { angeflogen = true; globus.anflug(); }
+    else globus.zuMir();
+  }
 }
 function ortText() {
   if (!ort) return;
@@ -256,7 +262,7 @@ async function datenLaden() {
     if (E.alle) await alleLaden();
     standPruefen();
     holeJson("data/stand.json").then((s) => { stand = Object.assign(stand || {}, s, { erzeugt: Date.parse(s.erzeugt) }); datenInfo(); }).catch(() => {});
-    holeJson("data/sterne.json").then((s) => { sterne = s.sterne; globus.sterne(sterne, Date.now()); sternVektoren = null; }).catch(() => {});
+    himmelDaten.laden().then(() => globus.sterne(himmelDaten.sterne, Date.now())).catch(() => {});
   } catch (e) {
     console.error(e);
     $("#lade-text").textContent = "Bahndaten konnten nicht geladen werden. Bitte später neu laden.";
@@ -399,6 +405,13 @@ const ablage = {
   },
 };
 
+/** mittleres Alter der Bahndaten aller Satelliten (Median der Epochen) */
+function mittlereEpoche() {
+  if (!sats.length) return Date.now();
+  const e = sats.map((s) => s[3]).sort((a, b) => a - b);
+  return e[e.length >> 1] * 1000;
+}
+
 function neuesteEpoche() {
   let m = 0;
   for (const s of sats) if ((s[15] & 3) || s[0] === ISS) m = Math.max(m, s[3]);
@@ -407,8 +420,8 @@ function neuesteEpoche() {
 
 /* Die Seite holt sich frische Bahndaten selbst direkt bei CelesTrak:
    - Raumstationen und helle Satelliten, wenn ihre Bahndaten älter als 6 Stunden sind (höchstens alle 2 Stunden, klein),
-   - alle aktiven Satelliten, wenn der Datenstand der Seite älter als einen Tag ist (höchstens einmal am Tag,
-     im Browser zwischengespeichert, ca. 3 MB). */
+   - alle aktiven Satelliten, wenn der Datenstand der Seite älter als einen Tag ist oder die Bahndaten
+     im Mittel älter als 3 Tage sind (höchstens einmal am Tag, im Browser zwischengespeichert, ca. 3 MB). */
 let auffrischenLaeuft = false;
 async function standPruefen() {
   if (!stand || !stand.erzeugt || auffrischenLaeuft) return;
@@ -436,8 +449,9 @@ async function standPruefen() {
         stand.browser = zeit;
       } catch { /* kein Zugriff */ }
     }
-    // 2) alle aktiven Satelliten
-    if (alleGeladen && jetzt - stand.erzeugt > 24 * 3600000) {
+    // 2) alle aktiven Satelliten – wenn der Datenstand der Seite älter als ein Tag ist
+    //    oder die Bahndaten im Mittel älter als 3 Tage sind (dann wären Positionen am Himmel zu ungenau)
+    if (alleGeladen && (jetzt - stand.erzeugt > 24 * 3600000 || jetzt - mittlereEpoche() > 3 * 86400000)) {
       let k = await ablage.lies("aktiv");
       if (!k || jetzt - k.zeit > 24 * 3600000) {
         if (jetzt - (speicher.lies("sus.aktivVersuch", 0) || 0) > 3600000) {
@@ -545,6 +559,13 @@ function kurzZeile() {
 }
 
 // ---------------------------------------------------------------- ISS
+/** Punkt auf der Erde unter einem Satelliten (aus der fortgeschriebenen Position) */
+function unterpunkt(i) {
+  const v = i >= 0 ? globus.satPosition(i) : null;
+  if (!v) return null;
+  return A.ecefZuGeo(v.x * A.RE, -v.z * A.RE, v.y * A.RE);
+}
+
 function issSicht() {
   if (!tick || issIdx < 0) return null;
   const st = tick.st[issIdx];
@@ -596,6 +617,8 @@ function issZeichnen(neu = false) {
   const s = issSicht();
   const z = s ? zustandText(s.st, s.r, tick && tick.sonne.el) : { text: "wird berechnet …", ja: false };
   let html = `<div class="zustand${z.ja ? " ja" : ""}"><svg><use href="#i-auge"/></svg><span>${esc(z.text)}</span></div>`;
+  const u = unterpunkt(issIdx), wo = u && ortName(u.lat, u.lon);
+  if (wo) html += `<p class="hinweis-klein">Die ISS fliegt gerade über ${esc(wo)}.</p>`;
   if (s && s.r) html += `<p class="hinweis-klein">Gerade ${km(s.r.r)} von dir entfernt, ${Math.round(s.r.el)}° über dem Horizont in Richtung ${A.richtung(s.r.az)}.</p>`;
   const angedockt = tick && tick.angedockt ? tick.angedockt.iss.map((i) => anzeigeName(sats[i][1])) : [];
   if (angedockt.length) html += `<p class="hinweis-klein">Mit der ISS verbunden: ${esc(angedockt.join(", "))}.</p>`;
@@ -684,21 +707,23 @@ $("#oben-liste").addEventListener("click", (e) => {
 });
 
 // ---------------------------------------------------------------- Himmel
-const himmel = new Himmel($("#himmel-karte"), { onWahl: (i) => waehle(i) });
-function sternRichtungen() {
-  if (!sterne || !B || !tick) return null;
-  const jetzt = Date.now();
-  if (sternVektoren && jetzt - sternVektoren.zeit < 2000 && sternVektoren.ort === B) return sternVektoren.liste;
-  if (!sternVektoren || !sternVektoren.eci) {
-    sternVektoren = { eci: sterne.map((s) => { const p = A.praezession(s[0], s[1], jetzt); return A.radecVektor(p.ra, p.dec); }) };
-  }
-  const g = A.gmst(jetzt);
-  const liste = sterne.map((s, k) => { const b = A.blickEci(B, sternVektoren.eci[k], g); return { az: b.az, el: b.el, mag: s[2], name: s[4] }; });
-  sternVektoren.liste = liste; sternVektoren.zeit = jetzt; sternVektoren.ort = B;
-  return liste;
-}
+const himmelDaten = new HimmelDaten();
+let himmelObjekt = null; // Objekt der Info-Karte unter der Himmelskarte
+const himmel = new Himmel($("#himmel-karte"), {
+  himmel: himmelDaten,
+  einst: () => zeigen.einst,
+  onWahl: (i) => waehle(i),
+  onObjekt: (o) => { himmelObjekt = o; himmelInfo(); himmelZeichnen(); },
+});
 function himmelZeichnen() {
   if (!tick) return;
+  if (!himmelDaten.bereit) { himmelDaten.laden().then(() => himmelZeichnen()).catch(() => {}); }
+  if (!himmelDaten.planeten.length) astronomieLaden().then((x) => { if (x && ort) { himmelDaten.planetenAktualisieren(ort.lat, ort.lon, Date.now()); himmelZeichnen(); planetenListe(); } });
+  const jetzt = Date.now();
+  if (ort) {
+    himmelDaten.aktualisieren(ort.lat, ort.lon, jetzt);
+    himmelDaten.planetenAktualisieren(ort.lat, ort.lon, jetzt);
+  }
   const o = tick.oben, liste = [];
   for (let k = 0; k < o.length; k += 7) {
     const i = o[k], st = tick.st[i], s = sats[i];
@@ -712,8 +737,68 @@ function himmelZeichnen() {
     const r = zielRichtung();
     if (r) aus = { az: r.az, el: r.el, name: anzeigeName(sats[auswahl][1]) };
   }
-  himmel.zeichne({ sats: liste, sonne: tick.sonne, mond: tick.mond, sterne: sternRichtungen(), bahn: auswahlBahnHimmel && auswahlBahnHimmel.i === auswahl ? auswahlBahnHimmel.daten : null, auswahl: aus });
+  const obj = himmelObjekt ? zeigen.objektRichtung(himmelObjekt) : null;
+  himmel.zeichne({ sats: liste, sonne: tick.sonne, mond: tick.mond, bahn: auswahlBahnHimmel && auswahlBahnHimmel.i === auswahl ? auswahlBahnHimmel.daten : null, auswahl: aus, objekt: obj ? { az: obj.az, el: obj.el } : null });
+  if (jetzt - planetenZeit > 20000) planetenListe();
 }
+
+function himmelInfo() {
+  const el = $("#himmel-info");
+  if (!himmelObjekt) { el.hidden = true; return; }
+  const d = zeigen.infoDaten(himmelObjekt);
+  if (!d) { el.hidden = true; return; }
+  el.innerHTML = infoHtml(d).replace("Hinführen", "Mit dem Handy zeigen");
+  el.hidden = false;
+}
+$("#himmel-info").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-info]");
+  if (!b) return;
+  if (b.dataset.info === "zu") { himmelObjekt = null; himmelInfo(); himmelZeichnen(); }
+  else if (b.dataset.info === "hin" && himmelObjekt) himmelLiveOeffnen(himmelObjekt);
+});
+
+/** Liste „Mond und Planeten“ unter der Himmelskarte */
+let planetenZeit = 0;
+function planetenListe() {
+  const el = $("#planeten-liste");
+  if (!ort || !himmelDaten.planeten.length) return;
+  planetenZeit = Date.now();
+  const jetzt = Date.now();
+  const sonneEl = tick && tick.sonne ? tick.sonne.el : -90;
+  const zeilen = [];
+  const m = himmelDaten.mondDetails(ort.lat, ort.lon, jetzt);
+  const eintrag = (id, name, farbe, az, el2, mag, extra) => {
+    const au = himmelDaten.aufUnter(id, ort.lat, ort.lon, jetzt);
+    let wann = "";
+    if (el2 >= 0) wann = au && au.unter ? `geht ${tag(au.unter)} um ${uhr(au.unter)} Uhr unter` : "geht heute nicht unter";
+    else wann = au && au.auf ? `geht ${tag(au.auf)} um ${uhr(au.auf)} Uhr auf` : "geht heute nicht auf";
+    const wo = el2 >= 0 ? `jetzt ${Math.round(el2)}° hoch im ${A.himmelsrichtung(az)}` : "unter dem Horizont";
+    return `<li data-objekt="${id}" class="${el2 >= 0 ? "oben-ja" : "oben-nein"}"><i class="punkt" style="background:${farbe}"></i><span class="name">${esc(name)}</span><span class="wert">${zahl(mag, 1)} mag</span><span class="unter">${esc(wo)} · ${esc(wann)}${extra ? " · " + esc(extra) : ""}</span></li>`;
+  };
+  if (m) zeilen.push(eintrag("Moon", "Mond", "#e9eefa", m.az, m.el, m.mag, `${zahl(m.anteil * 100)} % beleuchtet`));
+  const nah = (p) => { const s = tick && tick.sonne; if (!s) return false; const a = Math.acos(Math.max(-1, Math.min(1, Math.sin(p.el * A.RAD) * Math.sin(s.el * A.RAD) + Math.cos(p.el * A.RAD) * Math.cos(s.el * A.RAD) * Math.cos((p.az - s.az) * A.RAD)))) * A.DEG; return a < 12; };
+  for (const p of himmelDaten.planeten) {
+    const extra = nah(p) ? "zu nah an der Sonne" : p.mag > 6 ? "nur mit Fernglas oder Teleskop" : (p.el > 5 && sonneEl < -6 && p.mag < 4) ? "gut zu sehen" : "";
+    zeilen.push(eintrag(p.id, p.name, p.farbe, p.az, p.el, p.mag, extra));
+  }
+  el.innerHTML = zeilen.join("");
+}
+$("#planeten-liste").addEventListener("click", (e) => {
+  const li = e.target.closest("[data-objekt]");
+  if (!li) return;
+  himmelObjekt = li.dataset.objekt === "Moon" ? { art: "mond" } : { art: "planet", id: li.dataset.objekt };
+  himmelInfo(); himmelZeichnen();
+  $("#himmel-info").scrollIntoView({ block: "nearest", behavior: "smooth" });
+});
+for (const b of $$("[data-himmel]")) b.addEventListener("click", () => {
+  const k = b.dataset.himmel;
+  zeigen.einst[k] = !zeigen.einst[k];
+  zeigen.einstellungenGeaendert();
+  himmelSchalter();
+  himmelZeichnen();
+});
+function himmelSchalter() { for (const b of $$("[data-himmel]")) b.setAttribute("aria-pressed", String(!!zeigen.einst[b.dataset.himmel])); }
+$("#himmel-live").addEventListener("click", () => himmelLiveOeffnen(null));
 
 // ---------------------------------------------------------------- Auswahl und Steckbrief
 let vorReiter = "oben";
@@ -742,6 +827,7 @@ function waehle(i, oeffnen = true) {
 
 function steckbriefOeffnen(i) {
   const s = sats[i];
+  orteLaden();
   for (const x of $$(".seite")) x.hidden = x.id !== "seite-steckbrief";
   for (const b of $$(".reiter button")) b.setAttribute("aria-selected", "false");
   if (blatt.dataset.hoehe === "klein") blattHoehe("halb");
@@ -832,56 +918,93 @@ $("#steckbrief").addEventListener("click", (e) => {
   } else if (a === "zeigen") zeigenStarten();
 });
 
-// ---------------------------------------------------------------- Zeigen (Lagesensoren)
-const zeigen = new Zeigen({
-  beobachter: () => ort,
-  missweisung: (lat, lon) => missweisung(lat, lon, 0, new Date()),
-  sonne: () => (tick ? tick.sonne : null),
-  mond: () => (tick ? tick.mond : null),
-  sterne: () => sternRichtungen(),
-  andere: () => {
-    if (!tick) return [];
-    const o = tick.oben, out = [];
-    for (let k = 0; k < o.length && out.length < 300; k += 7) {
-      const i = o[k], st = tick.st[i];
-      if (i === auswahl || (st & 64) || !(st & 4)) continue;
-      if (E.filter[sats[i][14]] === false) continue;
-      out.push({ az: o[k + 1], el: o[k + 2], sichtbar: !!(st & 8) });
-    }
-    return out;
-  },
-  melde: (t) => melde(t, 5),
-  onZu: () => {},
-});
-
-/** Richtung zum gewählten Satelliten – jedes Bild neu aus der fortgeschriebenen Position */
+// ---------------------------------------------------------------- Himmel live (Lagesensoren)
+/** Richtung eines Satelliten jetzt – jedes Bild neu aus der fortgeschriebenen Position */
 const _v = { x: 0, y: 0, z: 0 };
-function zielRichtung() {
-  if (auswahl < 0 || !B || !tick) return null;
-  const v = globus.satPosition(auswahl);
+function satRichtungJetzt(i, plusSek = 0) {
+  if (i < 0 || !B || !tick) return null;
+  const v = globus.satPosition(i, undefined, plusSek);
+  const st = tick.st[i];
+  const d = tick.auswahl === i ? tick.detail : null;
   if (!v) {
-    const d = tick.auswahl === auswahl ? tick.detail : null;
-    return d && d.az != null ? { az: d.az, el: d.el, licht: d.licht, mag: d.mag, sichtbar: !!(tick.st[auswahl] & 8) } : null;
+    if (d && d.az != null) return { az: d.az, el: d.el, licht: d.licht, mag: d.mag, sichtbar: !!(st & 8) };
+    const o = tick.oben;
+    for (let k = 0; k < o.length; k += 7) if (o[k] === i) return { az: o[k + 1], el: o[k + 2], licht: o[k + 6], mag: o[k + 4], sichtbar: !!(st & 8), r: o[k + 3] };
+    return null;
   }
   // Szene -> erdfest [km]
   _v.x = v.x * A.RE; _v.y = -v.z * A.RE; _v.z = v.y * A.RE;
   const b = A.blick(B, _v.x, _v.y, _v.z);
-  const st = tick.st[auswahl];
-  const d = tick.auswahl === auswahl ? tick.detail : null;
-  return { az: b.az, el: b.el, licht: d ? d.licht : (st & 4 ? 1 : 0), mag: d ? d.mag : null, sichtbar: !!(st & 8) };
+  return { az: b.az, el: b.el, r: b.r, licht: d ? d.licht : (st & 4 ? 1 : 0), mag: d ? d.mag : null, sichtbar: !!(st & 8) };
 }
+const zielRichtung = () => satRichtungJetzt(auswahl);
+
+/** angestrahlte Satelliten über dem Horizont für „Himmel live“ (alle 200 ms neu) */
+let himmelSats = { zeit: 0, liste: [] };
+function satListeHimmel() {
+  const jetzt = performance.now();
+  if (jetzt - himmelSats.zeit < 200) return himmelSats.liste;
+  const out = [];
+  if (tick && B) {
+    const o = tick.oben;
+    for (let k = 0; k < o.length; k += 7) {
+      const i = o[k], st = tick.st[i];
+      if (st & 64) continue;
+      // sichtbare immer, sonst nur angestrahlte, die wenigstens im Fernglas zu sehen wären
+      if (!(st & 8) && i !== issIdx && !((st & 4) && o[k + 4] < 7.5)) continue;
+      if (E.filter[sats[i][14]] === false) continue;
+      const r = satRichtungJetzt(i);
+      if (!r) continue;
+      const x = { i, az: r.az, el: r.el, sichtbar: !!(st & 8), licht: !!(st & 4), iss: i === issIdx, mag: o[k + 4], name: anzeigeName(sats[i][1]) };
+      if (x.sichtbar || x.iss) { const r2 = satRichtungJetzt(i, 10); if (r2) { x.az2 = r2.az; x.el2 = r2.el; } }
+      out.push(x);
+    }
+  }
+  himmelSats = { zeit: jetzt, liste: out };
+  return out;
+}
+
+const zeigen = new Zeigen({
+  himmel: himmelDaten,
+  beobachter: () => ort,
+  missweisung: (lat, lon) => missweisung(lat, lon, 0, new Date()),
+  sonne: () => (tick ? tick.sonne : null),
+  mond: () => (tick ? tick.mond : null),
+  satelliten: () => satListeHimmel(),
+  sichtGrenze: () => E.himmel,
+  satRichtung: (i) => satRichtungJetzt(i),
+  satName: (i) => (sats[i] ? (i === issIdx ? "ISS" : anzeigeName(sats[i][1])) : "Satellit"),
+  satDaten: (i) => {
+    const r = satRichtungJetzt(i) || {};
+    const s = sats[i];
+    const st = tick ? tick.st[i] : 0;
+    let mag = r.mag;
+    if (mag == null && tick) { const o = tick.oben; for (let k = 0; k < o.length; k += 7) if (o[k] === i) { mag = o[k + 4]; break; } }
+    return { name: i === issIdx ? "ISS (Internationale Raumstation)" : anzeigeName(s[1]), kat: s[14] === "iss" ? "Raumstation" : (KAT[s[14]] || KAT.sonst).name, az: r.az, el: r.el, r: r.r, mag: mag != null && mag < 50 ? mag : null, sichtbar: !!(st & 8), licht: !!(st & 4), iss: i === issIdx };
+  },
+  satBahn: (i) => frage(vorher, { typ: "himmelsbahn", id: sats[i][0], sat: sats[i], von: Date.now() - 60000, bis: Date.now() + 15 * 60000, schritt: 5000 }),
+  onSteckbrief: (i) => waehle(i),
+  onRot: (an) => { $("#opt-rot").checked = an; },
+  onEinst: () => { himmelSchalter(); if (!$("#seite-himmel").hidden) himmelZeichnen(); },
+  melde: (t) => melde(t, 5),
+  onAuf: () => globus.pause(true),
+  onZu: () => { globus.pause(false); if (!$("#seite-himmel").hidden) himmelZeichnen(); },
+});
+himmelSchalter();
+
+/** „Himmel live“ öffnen – im Klick aufrufen, sonst fragt iOS nicht nach den Lagesensoren */
+function himmelLiveOeffnen(ziel) {
+  const erlaubt = zeigen.erlaubnis();
+  erlaubt.then((ok) => {
+    if (!ok) melde("Ohne Zugriff auf die Lagesensoren kann das Handy nicht zeigen. Du kannst dich trotzdem durch Ziehen umsehen.", 7);
+    zeigen.oeffnen(ziel);
+  });
+}
+$("#knopf-himmel").addEventListener("click", () => himmelLiveOeffnen(null));
 
 function zeigenStarten() {
   if (auswahl < 0) return;
-  const i = auswahl;
-  const erlaubt = zeigen.erlaubnis(); // gleich im Klick aufrufen (iOS)
-  erlaubt.then((ok) => {
-    if (!ok) melde("Ohne Zugriff auf die Lagesensoren kann das Handy nicht zeigen. Du kannst dich trotzdem durch Ziehen umsehen.", 7);
-    zeigen.oeffnen({ name: anzeigeName(sats[i][1]), richtung: zielRichtung, bahn: null });
-    frage(vorher, { typ: "himmelsbahn", id: sats[i][0], sat: sats[i], von: Date.now() - 60000, bis: Date.now() + 15 * 60000, schritt: 5000 }).then((m) => {
-      if (m.daten) zeigen.setzeBahn(m.daten, m.von);
-    });
-  });
+  himmelLiveOeffnen({ art: "sat", i: auswahl });
 }
 
 // ---------------------------------------------------------------- Einstellungen
@@ -895,6 +1018,7 @@ function einstellungenFuellen() {
   $("#opt-linien").checked = E.linien;
   $("#opt-namen").checked = E.namen;
   $("#opt-alle").checked = E.alle;
+  $("#opt-rot").checked = zeigen.einst.rot;
   datenInfo();
   ortText();
 }
@@ -924,6 +1048,7 @@ $("#opt-alle").addEventListener("change", (e) => {
   if (E.alle) alleLaden();
   else melde("Wird beim nächsten Öffnen der Seite wirksam.", 4);
 });
+$("#opt-rot").addEventListener("change", (e) => zeigen.setzeRot(e.target.checked));
 $("#ort-gps").addEventListener("click", () => gpsHolen(true));
 $("#ort-tippen").addEventListener("click", () => {
   $("#einstellungen").close();
@@ -948,8 +1073,13 @@ function startFertig() {
   $("#lade").classList.add("weg");
   setTimeout(() => $("#lade").remove(), 800);
   versatzAnpassen();
-  if (ort) globus.zuMir();
+  if (ort) { angeflogen = true; globus.anflug(); }
+  else globus.fernStart();
   if (PC.matches) zeigeReiter("oben", false);
+  // danach in Ruhe: scharfe Erdbilder, Küsten und Grenzen
+  setTimeout(() => globus.hochaufloesend(), 1200);
+  holeJson("data/grenzen.json").then((d) => globus.grenzen(d)).catch(() => {});
+  setTimeout(() => orteLaden(), 2500);
 }
 
 (function start() {
@@ -971,4 +1101,4 @@ function startFertig() {
 })();
 
 // zum Testen von außen
-window.__sus = { get tick() { return tick; }, get sats() { return sats; }, get auswahl() { return auswahl; }, waehle, globus, get ort() { return ort; }, get issPaesse() { return issPaesse; }, get nachtListe() { return nachtListe; }, zeigen };
+window.__sus = { get tick() { return tick; }, get sats() { return sats; }, get auswahl() { return auswahl; }, waehle, globus, get ort() { return ort; }, get issPaesse() { return issPaesse; }, get nachtListe() { return nachtListe; }, zeigen, himmelDaten, himmelLiveOeffnen, ortName, unterpunkt };

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#05070d">
 <meta name="color-scheme" content="dark">
-<meta name="description" content="Welche Satelliten fliegen gerade über mir? Drehbarer 3D-Globus mit ISS, Sichtbarkeit, Überflügen und Zeige-Modus fürs Handy.">
+<meta name="description" content="Welche Satelliten fliegen gerade über mir? Drehbarer 3D-Globus mit ISS, Sichtbarkeit und Überflügen – und „Himmel live“: Handy hochhalten und Sterne, Sternbilder, Planeten und Satelliten finden.">
 <title>Satelliten über mir</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png">
@@ -29,6 +29,12 @@
     <symbol id="i-kamera" viewBox="0 0 24 24"><path d="M3 8.5A2 2 0 0 1 5 6.5h2.2l1.5-2h6.6l1.5 2H19a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.6" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
     <symbol id="i-mond" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z" fill="currentColor"/></symbol>
     <symbol id="i-auge" viewBox="0 0 24 24"><path d="M1.8 12S5.5 5 12 5s10.2 7 10.2 7-3.7 7-10.2 7S1.8 12 1.8 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3.2" fill="currentColor"/></symbol>
+    <symbol id="i-himmel" viewBox="0 0 24 24"><rect x="6.2" y="8.6" width="9.2" height="13.6" rx="2" fill="none" stroke="currentColor" stroke-width="1.8" transform="rotate(-16 10.8 15.4)"/><path d="M18.2 1.8l1 2.2 2.3.3-1.7 1.6.4 2.3-2-1.1-2 1.1.4-2.3-1.7-1.6 2.3-.3z" fill="currentColor"/><circle cx="5.2" cy="4.6" r="1.2" fill="currentColor"/><circle cx="11.6" cy="2.9" r=".9" fill="currentColor"/></symbol>
+    <symbol id="i-sternbild" viewBox="0 0 24 24"><path d="M4 18.5l5-6.5 5.2 3.2L20 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="4" cy="18.5" r="2" fill="currentColor"/><circle cx="9" cy="12" r="2" fill="currentColor"/><circle cx="14.2" cy="15.2" r="1.7" fill="currentColor"/><circle cx="20" cy="6" r="2.3" fill="currentColor"/></symbol>
+    <symbol id="i-planet" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5.6" fill="currentColor"/><ellipse cx="12" cy="12" rx="10.6" ry="3.5" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(-20 12 12)"/></symbol>
+    <symbol id="i-rot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
+    <symbol id="i-kompass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 5.2l2.7 6.8L12 18.8 9.3 12z" fill="currentColor" opacity=".45"/><path d="M12 5.2l2.7 6.8H9.3z" fill="currentColor"/></symbol>
+    <symbol id="i-pfeil" viewBox="0 0 24 24"><path d="M4 12h14M12.5 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-iss" viewBox="0 0 40 24"><rect x="17" y="9" width="6" height="6" rx="1" fill="currentColor"/><rect x="4" y="11.2" width="32" height="1.6" fill="currentColor"/><rect x="1" y="2" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="1" y="13" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="7" y="2" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="7" y="13" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="28" y="2" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="28" y="13" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="34" y="2" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="34" y="13" width="5" height="9" fill="currentColor" opacity=".85"/></symbol>
   </defs>
 </svg>
@@ -49,6 +55,7 @@
 </header>
 
 <button id="iss-chip" class="chip-iss" hidden><svg><use href="#i-iss"/></svg><span id="iss-chip-text">ISS</span></button>
+<button id="knopf-himmel" class="knopf-himmel" title="Handy hochhalten: Sterne, Planeten und Satelliten finden"><svg><use href="#i-himmel"/></svg><span>Himmel live</span></button>
 
 <div id="meldung" role="status" hidden></div>
 <div id="lade" class="lade"><div class="lade-kreis"></div><p id="lade-text">Lade Erde und Bahndaten …</p></div>
@@ -85,13 +92,23 @@
     </section>
 
     <section class="seite" id="seite-himmel" hidden>
-      <p class="hinweis-klein">Dein Himmel von unten gesehen: Mitte = genau über dir, Rand = Horizont. Norden oben, Osten links.</p>
+      <div class="himmel-kopf">
+        <div class="filter" role="group" aria-label="Anzeige">
+          <button data-himmel="sternbilder" aria-pressed="true">Sternbilder</button>
+          <button data-himmel="planeten" aria-pressed="true">Planeten</button>
+        </div>
+        <button class="knopf knopf-live" id="himmel-live"><svg><use href="#i-himmel"/></svg>Himmel live</button>
+      </div>
+      <p class="hinweis-klein">Dein Himmel von unten gesehen: Mitte = genau über dir, Rand = Horizont. Norden oben, Osten links. Tippe auf einen Stern, Planeten, Satelliten oder ein Sternbild.</p>
       <div class="himmel-rahmen"><canvas id="himmel-karte" aria-label="Himmelskarte"></canvas></div>
+      <div class="info-karte" id="himmel-info" hidden></div>
       <div class="legende">
         <span><i class="punkt p-sichtbar"></i>mit bloßem Auge sichtbar</span>
         <span><i class="punkt p-licht"></i>angestrahlt</span>
         <span><i class="punkt p-schatten"></i>im Erdschatten</span>
       </div>
+      <h3 class="abschnitt">Mond und Planeten</h3>
+      <ol class="planeten-liste" id="planeten-liste"><li class="leer">wird berechnet …</li></ol>
     </section>
 
     <section class="seite" id="seite-steckbrief" hidden>
@@ -102,25 +119,40 @@
 
 <div id="zeigen" class="zeigen" hidden>
   <video id="zeigen-video" playsinline muted autoplay></video>
-  <canvas id="zeigen-karte"></canvas>
+  <canvas id="zeigen-karte" aria-label="Himmel live"></canvas>
   <div class="zeigen-oben">
-    <div>
-      <p class="zeigen-name" id="zeigen-name">–</p>
+    <div class="zeigen-titel">
+      <p class="zeigen-name"><span id="zeigen-name">Himmel live</span><button class="ziel-weg" id="zeigen-ziel-weg" hidden aria-label="Ziel aufheben" title="Ziel aufheben"><svg><use href="#i-zu"/></svg></button></p>
       <p class="zeigen-ziel" id="zeigen-ziel"></p>
     </div>
-    <button class="rund hell" id="zeigen-zu" aria-label="Zeige-Modus schließen"><svg><use href="#i-zu"/></svg></button>
+    <button class="rund hell knopf-rot" id="zeigen-rot" aria-pressed="false" aria-label="Rotlicht ein oder aus" title="Rotlicht: schont die Augen im Dunkeln"><svg><use href="#i-rot"/></svg></button>
+    <button class="rund hell" id="zeigen-zu" aria-label="Himmel live schließen"><svg><use href="#i-zu"/></svg></button>
   </div>
-  <p class="zeigen-anweisung" id="zeigen-anweisung">Halte dein Handy hoch und schau durch es hindurch zum Himmel.</p>
+  <p class="zeigen-anweisung" id="zeigen-anweisung" hidden></p>
   <div class="zeigen-unten">
-    <button class="rund hell" id="zeigen-kamera" aria-label="Kamera ein oder aus" title="Kamerabild"><svg><use href="#i-kamera"/></svg></button>
-    <button class="knopf-klein" id="zeigen-mond" title="Mond in die Mitte nehmen und tippen"><svg><use href="#i-mond"/></svg><span>Mit Mond abgleichen</span></button>
-    <div class="feinjustage">
-      <button class="rund klein hell" id="zeigen-links" aria-label="Richtung 2 Grad nach links korrigieren">−</button>
-      <span id="zeigen-korrektur">0°</span>
-      <button class="rund klein hell" id="zeigen-rechts" aria-label="Richtung 2 Grad nach rechts korrigieren">+</button>
+    <p class="zeigen-fuss" id="zeigen-fuss"></p>
+    <div class="zeigen-chips" id="zeigen-chips"></div>
+    <div class="zeigen-leiste">
+      <button class="pille" id="zeigen-sternbilder" aria-pressed="true"><svg><use href="#i-sternbild"/></svg><span>Sternbilder</span></button>
+      <button class="pille" id="zeigen-planeten" aria-pressed="true"><svg><use href="#i-planet"/></svg><span>Planeten</span></button>
+      <span class="leiste-platz"></span>
+      <button class="rund hell" id="zeigen-kamera" aria-pressed="false" aria-label="Kamerabild ein oder aus" title="Kamerabild"><svg><use href="#i-kamera"/></svg></button>
+      <button class="rund hell" id="zeigen-kompass" aria-pressed="false" aria-label="Kompass abgleichen" title="Kompass abgleichen"><svg><use href="#i-kompass"/></svg></button>
     </div>
   </div>
-  <p class="zeigen-fuss" id="zeigen-fuss"></p>
+  <div class="info-karte zeigen-info" id="zeigen-info" hidden></div>
+  <div class="zeigen-feld" id="zeigen-kompass-feld" hidden>
+    <p class="feld-titel">Kompass abgleichen</p>
+    <p class="hinweis-klein">Nimm einen hellen Stern, einen Planeten oder den Mond genau in den Kreis in der Mitte und tippe auf „Abgleichen“. Oder verschiebe die Richtung von Hand.</p>
+    <div class="feld-reihe">
+      <button class="knopf" id="zeigen-abgleich"><svg><use href="#i-kompass"/></svg>Abgleichen</button>
+      <div class="feinjustage">
+        <button class="rund klein hell" id="zeigen-links" aria-label="Richtung 2 Grad nach links korrigieren">−</button>
+        <span id="zeigen-korrektur">0°</span>
+        <button class="rund klein hell" id="zeigen-rechts" aria-label="Richtung 2 Grad nach rechts korrigieren">+</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <dialog id="einstellungen" class="dialog">
@@ -138,6 +170,7 @@
     <label class="schalter"><input type="checkbox" id="opt-linien"><span>Sichtlinien zu sichtbaren Satelliten</span></label>
     <label class="schalter"><input type="checkbox" id="opt-namen"><span>Namen der sichtbaren Satelliten am Globus</span></label>
     <label class="schalter"><input type="checkbox" id="opt-alle"><span>Alle aktiven Satelliten laden <small>(gut 16.000, ca. 1 MB)</small></span></label>
+    <label class="schalter"><input type="checkbox" id="opt-rot"><span>Rotlicht <small>(für draußen im Dunkeln: schont die an die Nacht gewöhnten Augen)</small></span></label>
     <h3>Standort</h3>
     <p class="hinweis-klein" id="ort-info"></p>
     <div class="ort-zeile">
@@ -157,14 +190,16 @@
 <dialog id="hilfe" class="dialog">
   <form method="dialog" class="dialog-kopf"><h2>So funktioniert's</h2><button class="rund" aria-label="Schließen"><svg><use href="#i-zu"/></svg></button></form>
   <div class="dialog-inhalt texte">
-    <p><b>Globus:</b> Mit einem Finger drehen, mit zwei Fingern zoomen. Tippe einen Punkt an, um zu sehen, was es für ein Satellit ist. Der Knopf oben rechts bringt dich zurück zu deinem Standort.</p>
-    <p><b>Farben:</b> <i class="punkt p-sichtbar"></i> gelb leuchtend = jetzt mit bloßem Auge zu sehen. <i class="punkt p-licht"></i> hell = von der Sonne angestrahlt. <i class="punkt p-schatten"></i> blass = im Erdschatten, also unsichtbar. Größere Punkte stehen über deinem Horizont.</p>
+    <p><b>Globus:</b> Mit einem Finger drehen, mit zwei Fingern zoomen. Tippe einen Punkt an, um zu sehen, was es für ein Satellit ist. Der Knopf oben rechts bringt dich zurück zu deinem Standort. Feine Linien zeigen Küsten und Landesgrenzen.</p>
+    <p><b>Farben:</b> <i class="punkt p-sichtbar"></i> gelb leuchtend = jetzt mit bloßem Auge zu sehen. <i class="punkt p-licht"></i> hell = von der Sonne angestrahlt. <i class="punkt p-schatten"></i> blass = im Erdschatten, also unsichtbar. Große Punkte stehen über deinem Horizont, kleine blasse sind woanders.</p>
+    <p><b>Himmel live:</b> Tippe auf „Himmel live“ und halte das Handy hoch wie zum Fotografieren. Du siehst den Himmel in der Richtung, in die das Handy zeigt – mit Sternen, Sternbildern, Planeten, Mond und Satelliten. Was du jetzt sehen kannst, ist hervorgehoben und steht unten unter „Jetzt zu sehen“. Tippe etwas an, um zu erfahren, was es ist, und auf „Hinführen“: Ein Pfeil führt dich hin, im Ziel wird das Fadenkreuz grün.</p>
+    <p><b>Rotlicht:</b> Draußen im Dunkeln gewöhnen sich die Augen nach etwa 20 Minuten an die Nacht. Helles weißes Licht macht das sofort zunichte, rotes kaum. Der Knopf mit dem halben Kreis schaltet alles auf Rot.</p>
+    <p><b>Kompass:</b> Handys können einige Grad danebenliegen. Bewege das Handy ein paar Mal in Form einer liegenden Acht. Noch genauer: Kompass-Knopf, einen hellen Stern, Planeten oder den Mond in den Kreis nehmen und „Abgleichen“ tippen.</p>
     <p><b>Wann sieht man einen Satelliten?</b> Er leuchtet nicht selbst, sondern spiegelt Sonnenlicht. Sichtbar ist er, wenn er über deinem Horizont steht, noch von der Sonne angestrahlt wird und es bei dir schon dunkel ist – also vor allem kurz nach Sonnenuntergang und vor Sonnenaufgang.</p>
-    <p><b>Zeigen:</b> Wähle einen Satelliten und tippe „Zeigen“. Halte das Handy hoch wie zum Fotografieren. Ein Pfeil führt dich zum Satelliten, im Ziel wird das Fadenkreuz grün. Kompass ungenau? Handy einige Male in Form einer liegenden Acht bewegen oder mit dem Mond abgleichen.</p>
-    <p><b>Echtzeit:</b> Die Positionen werden laufend aus den Bahndaten berechnet (Bahnmodell SGP4). Die Bahndaten selbst werden alle paar Stunden neu geladen.</p>
-    <p><b>Helligkeit</b> wird in Magnituden (mag) angegeben: je kleiner, desto heller. Die ISS erreicht etwa −3 bis −4, die hellsten Sterne liegen um 0, mit bloßem Auge sieht man bis etwa 4 (Stadt) bis 6 (dunkles Land). Die Werte sind Schätzungen.</p>
+    <p><b>Echtzeit:</b> Die Positionen werden laufend aus den Bahndaten berechnet (Bahnmodell SGP4). Die Bahndaten selbst werden alle paar Stunden neu geladen. Planeten und Mond berechnet die Seite mit Astronomy Engine auf etwa eine Bogenminute genau.</p>
+    <p><b>Helligkeit</b> wird in Magnituden (mag) angegeben: je kleiner, desto heller. Die ISS erreicht etwa −3 bis −4, die hellsten Sterne liegen um 0, mit bloßem Auge sieht man bis etwa 4 (Stadt) bis 6 (dunkles Land). Die Werte für Satelliten sind Schätzungen.</p>
     <p><b>Dein Standort</b> bleibt auf deinem Gerät. Er wird nirgendwohin geschickt.</p>
-    <p class="quellen">Bahndaten: CelesTrak (T. S. Kelso). Satellitenkatalog: CelesTrak SATCAT. Helligkeiten: Mike McCants (qs.mag). Erdbilder: NASA Blue Marble und Black Marble. Sterne: Yale Bright Star Catalog. Missweisung: World Magnetic Model 2025 (NOAA/BGS). Software: three.js, satellite.js.</p>
+    <p class="quellen">Bahndaten: CelesTrak (T. S. Kelso). Satellitenkatalog: CelesTrak SATCAT. Helligkeiten: Mike McCants (qs.mag). Erdbilder: NASA Blue Marble und Black Marble. Küsten, Grenzen, Länder- und Meeresnamen: Natural Earth. Sterne: Yale Bright Star Catalog. Sternbilder: d3-celestial (Olaf Frohn) nach den IAU-Sternkarten. Planeten: Astronomy Engine (Don Cross). Missweisung: World Magnetic Model 2025 (NOAA/BGS). Software: three.js, satellite.js.</p>
   </div>
 </dialog>
 

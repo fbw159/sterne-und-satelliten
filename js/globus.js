@@ -34,59 +34,83 @@ void main() {
 }`;
 const ERDE_FS = `
 uniform sampler2D tTag; uniform sampler2D tNacht; uniform sampler2D tWasser;
-uniform vec3 uSonne;
+uniform vec3 uSonne; uniform vec3 uMond; uniform float uMondHell;
 varying vec2 vUv; varying vec3 vN; varying vec3 vP;
 void main() {
   vec3 n = normalize(vN);
   vec3 v = normalize(cameraPosition - vP);
   float mu = dot(n, uSonne);
-  float tag = smoothstep(-0.11, 0.10, mu);
+  float nv = max(dot(n, v), 0.0);
+  float tag = smoothstep(-0.10, 0.12, mu);
   vec3 tagF = texture2D(tTag, vUv).rgb;
   float lichter = texture2D(tNacht, vUv).r;
   float wasser = texture2D(tWasser, vUv).r;
-  vec3 hell = tagF * (0.07 + 1.1 * max(mu, 0.0));
-  vec3 dunkel = vec3(1.0, 0.72, 0.40) * pow(lichter, 1.7) * 0.8 + tagF * 0.022;
+  // Tagseite: Sonnenlicht, zum Rand hin Dunst der Atmosphäre
+  float lam = max(mu, 0.0);
+  vec3 hell = tagF * (0.05 + 1.15 * pow(lam, 0.8));
+  float dunst = pow(1.0 - nv, 2.4);
+  hell = mix(hell, vec3(0.30, 0.50, 1.0) * (0.12 + 0.75 * lam), dunst * 0.6 * smoothstep(-0.05, 0.35, mu));
+  // Nachtseite: feine, warme Stadtlichter und etwas Mondlicht
+  float st = pow(lichter, 1.5);
+  vec3 dunkel = vec3(1.0, 0.70, 0.36) * st * 1.1 + vec3(1.0, 0.86, 0.6) * st * st * 0.5;
+  float mond = max(dot(n, uMond), 0.0) * uMondHell;
+  dunkel += tagF * vec3(0.50, 0.62, 1.0) * (0.010 + 0.085 * mond);
   vec3 c = mix(dunkel, hell, tag);
+  // Glanz von Sonne und Mond auf dem Wasser
   vec3 h = normalize(uSonne + v);
-  float glanz = pow(max(dot(n, h), 0.0), 70.0) * wasser * smoothstep(0.0, 0.25, mu);
-  c += vec3(1.0, 0.88, 0.7) * glanz * 0.5;
-  float daemmerung = exp(-pow((mu + 0.02) / 0.045, 2.0));
-  c += vec3(0.30, 0.10, 0.02) * daemmerung * 0.12;
-  float rand = pow(1.0 - max(dot(n, v), 0.0), 2.6);
-  c += vec3(0.22, 0.45, 1.0) * rand * (0.08 + 0.55 * smoothstep(-0.25, 0.5, mu));
+  c += vec3(1.0, 0.88, 0.70) * pow(max(dot(n, h), 0.0), 60.0) * wasser * smoothstep(0.0, 0.2, mu) * 0.55;
+  vec3 hm = normalize(uMond + v);
+  c += vec3(0.65, 0.78, 1.0) * pow(max(dot(n, hm), 0.0), 120.0) * wasser * mond * 0.22 * (1.0 - tag);
+  // Dämmerungsstreifen
+  float daemmerung = exp(-pow((mu + 0.03) / 0.06, 2.0));
+  c += vec3(0.30, 0.09, 0.02) * daemmerung * 0.14;
+  // blauer Saum nur auf der Tagseite
+  c += vec3(0.20, 0.45, 1.0) * pow(1.0 - nv, 3.2) * 0.45 * smoothstep(-0.15, 0.45, mu);
   gl_FragColor = vec4(c, 1.0);
   #include <colorspace_fragment>
 }`;
 const HUELLE_VS = `
-varying vec3 vNw; varying vec3 vNv;
+varying vec3 vW;
 void main() {
-  vNw = normalize(mat3(modelMatrix) * normal);
-  vNv = normalize(normalMatrix * normal);
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  vec4 w = modelMatrix * vec4(position, 1.0);
+  vW = w.xyz;
+  gl_Position = projectionMatrix * viewMatrix * w;
 }`;
 const HUELLE_FS = `
 uniform vec3 uSonne;
-varying vec3 vNw; varying vec3 vNv;
+varying vec3 vW;
 void main() {
-  float i = pow(clamp(0.74 - dot(vNv, vec3(0.0, 0.0, 1.0)), 0.0, 1.0), 3.2);
-  float s = smoothstep(-0.35, 0.45, dot(vNw, uSonne));
-  vec3 c = vec3(0.30, 0.58, 1.0) * i * (0.18 + 1.1 * s);
-  gl_FragColor = vec4(c, 1.0);
+  vec3 d = normalize(vW - cameraPosition);
+  float t = max(-dot(cameraPosition, d), 0.0);
+  vec3 p = cameraPosition + d * t;            // nächster Punkt des Sehstrahls zur Erdmitte
+  float b = length(p);
+  float dichte = exp(-max(b - 1.0, 0.0) / 0.016);
+  float licht = dot(p / b, uSonne);
+  float tagS = smoothstep(-0.28, 0.22, licht);
+  vec3 farbe = mix(vec3(1.0, 0.42, 0.12), vec3(0.32, 0.58, 1.0), smoothstep(-0.08, 0.32, licht));
+  gl_FragColor = vec4(farbe * dichte * tagS * 0.95, 1.0);
   #include <colorspace_fragment>
 }`;
 const SAT_VS = `
-attribute vec3 v0; attribute vec4 farbe; attribute float groesse;
-uniform mat3 uMat; uniform float uDt; uniform float uPx;
+attribute vec3 v0; attribute vec4 farbe; attribute float groesse; attribute float wichtig;
+uniform mat3 uMat; uniform float uDt; uniform float uPx; uniform float uZoom;
 varying vec4 vF;
 void main() {
   vec3 p = position;
   float r = length(p);
   vec3 a = -398600.4418 * p / (r * r * r);
   vec3 q = p + v0 * uDt + 0.5 * a * uDt * uDt;
-  vec4 mv = viewMatrix * vec4(uMat * q, 1.0);
-  gl_Position = projectionMatrix * mv;
-  gl_PointSize = groesse * uPx;
-  vF = farbe;
+  vec3 w = uMat * q;
+  gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
+  // Am Erdrand drängen sich die Satelliten niedriger Bahnen: dort blasser, damit kein dicker Ring entsteht
+  float rw = length(w);
+  float rand = 1.0;
+  if (wichtig < 0.5 && rw < 1.6) {
+    float c = abs(dot(w / rw, normalize(cameraPosition - w)));
+    rand = mix(0.16, 1.0, smoothstep(0.05, 0.45, c));
+  }
+  gl_PointSize = groesse * uPx * uZoom * (0.7 + 0.3 * rand);
+  vF = vec4(farbe.rgb, farbe.a * rand);
   if (groesse <= 0.0 || r < 1.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`;
 const SAT_FS = `
@@ -118,6 +142,25 @@ void main() {
   if (d > 1.0) discard;
   float a = pow(1.0 - d, 1.6);
   gl_FragColor = vec4(vF * a, a);
+  #include <colorspace_fragment>
+}`;
+const LINIE_VS = `
+attribute float art;
+varying float vArt; varying vec3 vN;
+void main() {
+  vArt = art;
+  vN = normalize(position);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+const LINIE_FS = `
+uniform vec3 uSonne; uniform float uDeck;
+varying float vArt; varying vec3 vN;
+void main() {
+  float tag = smoothstep(-0.12, 0.15, dot(vN, uSonne));
+  float rand = smoothstep(0.03, 0.25, dot(vN, normalize(cameraPosition - vN)));
+  float a = vArt < 0.5 ? mix(0.13, 0.30, tag) : vArt < 1.5 ? mix(0.11, 0.24, tag) : mix(0.06, 0.13, tag);
+  vec3 f = vArt < 0.5 ? vec3(0.80, 0.90, 1.0) : vec3(1.0, 0.92, 0.74);
+  gl_FragColor = vec4(f, a * rand * uDeck);
   #include <colorspace_fragment>
 }`;
 
@@ -187,10 +230,15 @@ export class Globus {
     this._schleife = this._schleife.bind(this);
     this.laeuft = true;
     requestAnimationFrame(this._schleife);
-    document.addEventListener("visibilitychange", () => {
-      this.laeuft = !document.hidden;
-      if (this.laeuft) requestAnimationFrame(this._schleife);
-    });
+    document.addEventListener("visibilitychange", () => this._laufen());
+  }
+
+  /** Zeichnen anhalten, solange die Seite verborgen ist oder „Himmel live“ den Globus verdeckt */
+  pause(an) { this.pausiert = an; this._laufen(); }
+  _laufen() {
+    const vorher = this.laeuft;
+    this.laeuft = !document.hidden && !this.pausiert;
+    if (this.laeuft && !vorher) { this.letzteAktion = performance.now(); requestAnimationFrame(this._schleife); }
   }
 
   // ------------------------------------------------------------ Aufbau
@@ -209,6 +257,8 @@ export class Globus {
       tNacht: { value: tex("img/erde-nacht.jpg", false, fertig) },
       tWasser: { value: tex("img/erde-wasser.jpg", false, fertig) },
       uSonne: { value: new THREE.Vector3(1, 0, 0) },
+      uMond: { value: new THREE.Vector3(0, 0, 1) },
+      uMondHell: { value: 0 },
     };
     const erde = new THREE.Mesh(
       new THREE.SphereGeometry(1, 160, 96),
@@ -243,16 +293,66 @@ export class Globus {
     this.szene.add(this.sonnePunkt);
   }
 
-  _hochaufloesend() {
+  /** Gleich nach dem Start die scharfen Bilder (4096 Pixel breit) nachladen */
+  hochaufloesend() {
     if (this._hoch) return;
     this._hoch = true;
-    new THREE.TextureLoader().load("img/erde-tag-4k.jpg", (t) => {
-      t.colorSpace = THREE.SRGBColorSpace;
+    if (this.renderer.capabilities.maxTextureSize < 4096) return;
+    const lade = (url, name, srgb) => new THREE.TextureLoader().load(url, (t) => {
+      t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
       t.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-      const alt = this.uni.tTag.value;
-      this.uni.tTag.value = t;
+      const alt = this.uni[name].value;
+      this.uni[name].value = t;
       alt.dispose();
+      this.letzteAktion = performance.now();
     });
+    lade("img/erde-tag-4k.jpg", "tTag", true);
+    lade("img/erde-nacht-4k.jpg", "tNacht", false);
+  }
+
+  /** Küsten und Landesgrenzen als feine Linien (Daten: Natural Earth) */
+  grenzen(d) {
+    const teile = [["kueste", 0], ["grenze", 1], ["strittig", 2]];
+    let n = 0;
+    for (const [k] of teile) {
+      const a = d[k];
+      for (let i = 0; i < a.length;) { const m = a[i]; n += 2 * (m - 1); i += 1 + 2 * m; }
+    }
+    const pos = new Float32Array(3 * n), art = new Float32Array(n);
+    const R = 1.0015, F = 1 - 1 / 298.257223563;
+    let j = 0;
+    const punkt = (x, y) => {
+      const lo = x / 100 * A.RAD, la = y / 100 * A.RAD;
+      return [R * Math.cos(la) * Math.cos(lo), R * Math.sin(la) * F, -R * Math.cos(la) * Math.sin(lo)];
+    };
+    for (const [k, typ] of teile) {
+      const a = d[k];
+      for (let i = 0; i < a.length;) {
+        const m = a[i];
+        let x = a[i + 1], y = a[i + 2];
+        let alt = punkt(x, y);
+        for (let q = 1; q < m; q++) {
+          x += a[i + 1 + 2 * q]; y += a[i + 2 + 2 * q];
+          const neu = punkt(x, y);
+          pos.set(alt, 3 * j); art[j++] = typ;
+          pos.set(neu, 3 * j); art[j++] = typ;
+          alt = neu;
+        }
+        i += 1 + 2 * m;
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("art", new THREE.BufferAttribute(art, 1));
+    this.linienUni = { uSonne: this.uni.uSonne, uDeck: { value: 1 } };
+    const l = new THREE.LineSegments(g, new THREE.ShaderMaterial({
+      uniforms: this.linienUni, vertexShader: LINIE_VS, fragmentShader: LINIE_FS, transparent: true, depthWrite: false,
+    }));
+    l.renderOrder = 1;
+    l.frustumCulled = false;
+    this.szene.add(l);
+    this.grenzLinien = l;
+    this.letzteAktion = performance.now();
   }
 
   sterne(liste, ms) {
@@ -262,9 +362,9 @@ export class Globus {
       const p = A.praezession(s[0], s[1], ms);
       const v = A.radecVektor(p.ra, p.dec);
       pos[3 * k] = v.x; pos[3 * k + 1] = v.y; pos[3 * k + 2] = v.z;
-      gr[k] = Math.max(1.2, 5.2 - 0.8 * s[2]);
+      gr[k] = Math.max(1.3, 5.2 - 0.75 * s[2]);
       const f = farbtemperatur(s[3]);
-      const h = Math.min(1, Math.pow(10, -0.4 * (s[2] - 1.0)) * 0.7 + 0.25);
+      const h = Math.min(1, Math.pow(10, -0.4 * (s[2] - 1.0)) * 0.75 + 0.1 + 0.03 * Math.max(0, 6 - s[2]));
       fa[3 * k] = f[0] * h; fa[3 * k + 1] = f[1] * h; fa[3 * k + 2] = f[2] * h;
     });
     const g = new THREE.BufferGeometry();
@@ -281,7 +381,7 @@ export class Globus {
 
   _satelliten() {
     this.satGeo = new THREE.BufferGeometry();
-    this.satUni = { uMat: { value: this.uMat }, uDt: { value: 0 }, uPx: { value: this.pr } };
+    this.satUni = { uMat: { value: this.uMat }, uDt: { value: 0 }, uPx: { value: this.pr }, uZoom: { value: 1 } };
     const m = new THREE.ShaderMaterial({ uniforms: this.satUni, vertexShader: SAT_VS, fragmentShader: SAT_FS, transparent: true, depthWrite: false });
     this.satPunkte = new THREE.Points(this.satGeo, m);
     this.satPunkte.frustumCulled = false;
@@ -339,12 +439,14 @@ export class Globus {
     this.aVel = new THREE.BufferAttribute(new Float32Array(3 * n), 3);
     this.aFarbe = new THREE.BufferAttribute(new Float32Array(4 * n), 4);
     this.aGr = new THREE.BufferAttribute(new Float32Array(n), 1);
-    for (const a of [this.aPos, this.aVel, this.aFarbe, this.aGr]) a.setUsage(THREE.DynamicDrawUsage);
+    this.aWichtig = new THREE.BufferAttribute(new Float32Array(n), 1);
+    for (const a of [this.aPos, this.aVel, this.aFarbe, this.aGr, this.aWichtig]) a.setUsage(THREE.DynamicDrawUsage);
     const g = this.satGeo;
     g.setAttribute("position", this.aPos);
     g.setAttribute("v0", this.aVel);
     g.setAttribute("farbe", this.aFarbe);
     g.setAttribute("groesse", this.aGr);
+    g.setAttribute("wichtig", this.aWichtig);
     g.setDrawRange(0, n);
     this.katFarbe = {};
     for (const [k, v] of Object.entries(KAT)) this.katFarbe[k] = new THREE.Color(v.farbe);
@@ -363,7 +465,7 @@ export class Globus {
   }
 
   _faerben() {
-    const st = this.tick.st, n = this.n, f = this.aFarbe.array, gr = this.aGr.array;
+    const st = this.tick.st, n = this.n, f = this.aFarbe.array, gr = this.aGr.array, w = this.aWichtig.array;
     const c = new THREE.Color();
     for (let i = 0; i < n; i++) {
       const s = st[i];
@@ -372,16 +474,22 @@ export class Globus {
       const basis = this.katFarbe[kat] || this.katFarbe.sonst;
       let g, a;
       const oben = s & 2;
-      if (s & 8) { c.copy(GELB); g = 11; a = 1; }
-      else if (s & 4) { c.copy(basis).lerp(WEISS, oben ? 0.35 : 0.12); g = oben ? 5.5 : 3.2; a = oben ? 1 : 0.92; }
-      else { c.copy(basis).multiplyScalar(0.45); g = oben ? 4.6 : 2.6; a = oben ? 0.9 : 0.6; }
-      if (kat === "starlink" && !(s & 8)) { g *= oben ? 0.85 : 0.7; a *= oben ? 0.9 : 0.55; }
-      if (i === this.auswahl) { g = Math.max(g, 8); a = 1; }
+      // über deinem Horizont: groß und kräftig; alle übrigen dezent im Hintergrund
+      if (s & 8) { c.copy(GELB); g = 13; a = 1; }
+      else if (s & 4) { c.copy(basis).lerp(WEISS, oben ? 0.4 : 0.08); g = oben ? 7 : 3.4; a = oben ? 1 : 0.78; }
+      else { c.copy(basis).multiplyScalar(oben ? 0.62 : 0.4); g = oben ? 5.6 : 2.8; a = oben ? 0.95 : 0.5; }
+      if (!(s & 8)) {
+        if (kat === "starlink") { g *= oben ? 0.85 : 0.72; a *= oben ? 0.85 : 0.45; }
+        else if (kat === "internet") { g *= oben ? 0.9 : 0.85; a *= oben ? 0.9 : 0.7; }
+      }
+      if (i === this.auswahl) { g = Math.max(g, 9); a = 1; }
       f[4 * i] = c.r; f[4 * i + 1] = c.g; f[4 * i + 2] = c.b; f[4 * i + 3] = a;
       gr[i] = g;
+      w[i] = oben || (s & 8) || i === this.auswahl || i === this.issIdx ? 1 : 0;
     }
     this.aFarbe.needsUpdate = true;
     this.aGr.needsUpdate = true;
+    this.aWichtig.needsUpdate = true;
   }
 
   setzeBeobachter(lat, lon) {
@@ -501,21 +609,49 @@ export class Globus {
   }
 
   /** Kamera zu einer Richtung (Szenenvektor) fliegen */
-  fliegeZu(richtung, abstand, dauer = 1400) {
+  fliegeZu(richtung, abstand, dauer = 1400, log = false) {
     const start = this.kamera.position.clone();
     const ziel = richtung.clone().normalize();
-    this.flug = { t0: performance.now(), dauer, von: start.clone().normalize(), nach: ziel, d0: start.length(), d1: abstand ?? start.length() };
+    this.flug = { t0: performance.now(), dauer, von: start.clone().normalize(), nach: ziel, d0: start.length(), d1: abstand ?? start.length(), log };
     this.folgen = false;
+  }
+
+  /** Blickrichtung auf den eigenen Ort: leicht von Süden, damit der Himmel darüber gut zu sehen ist */
+  _mirBlick() {
+    const v = this.beob.v.clone().normalize();
+    const nord = new THREE.Vector3(0, 1, 0);
+    return v.clone().add(nord.clone().sub(v.clone().multiplyScalar(v.dot(nord))).multiplyScalar(-0.35)).normalize();
   }
 
   zuMir(abstand) {
     if (!this.beob) return;
     if (abstand == null) abstand = this.passenderAbstand(0.8);
-    // leicht von Süden schauen, damit der Himmel darüber gut zu sehen ist
-    const v = this.beob.v.clone().normalize();
-    const nord = new THREE.Vector3(0, 1, 0);
-    const blick = v.clone().multiplyScalar(1).add(nord.clone().sub(v.clone().multiplyScalar(v.dot(nord))).multiplyScalar(-0.35));
-    this.fliegeZu(blick, abstand);
+    this.fliegeZu(this._mirBlick(), abstand);
+  }
+
+  /** Anflug beim Start: aus dem All heran, die Erde dreht sich dabei in ihrer echten Drehrichtung */
+  anflug() {
+    if (!this.beob) return;
+    const ziel = this._mirBlick();
+    const d1 = this.passenderAbstand(0.8);
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      this.kamera.position.copy(ziel.multiplyScalar(d1));
+      return;
+    }
+    if (this.kamera.position.length() < 9) {
+      const start = ziel.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 1.75);
+      start.y = start.y * 0.6 + 0.28;
+      this.kamera.position.copy(start.normalize()).multiplyScalar(15);
+      this.steuerung.update();
+    }
+    this.fliegeZu(ziel, d1, 3400, true);
+  }
+
+  /** Solange der Standort fehlt: Erde aus der Ferne */
+  fernStart() {
+    const v = new THREE.Vector3(Math.cos(0.35) * Math.cos(0.17), Math.sin(0.35), -Math.cos(0.35) * Math.sin(0.17));
+    this.kamera.position.copy(v.multiplyScalar(15));
+    this.steuerung.update();
   }
 
   starteFolgen() { if (this.auswahl >= 0) { this.folgen = true; this.flug = null; } }
@@ -530,16 +666,23 @@ export class Globus {
   }
 
   /** Szenenposition eines Satelliten jetzt (wie im Shader) */
-  satPosition(i, out = new THREE.Vector3()) {
+  satPosition(i, out = new THREE.Vector3(), plusSek = 0) {
     const t = this.tick;
     if (!t || !(t.st[i] & 1)) return null;
-    const dt = this.dt;
+    let dt = this.dt, M = this.uMat;
+    if (this.pausiert || plusSek || dt == null) {
+      // Globus angehalten (z. B. „Himmel live“) oder Blick in die Zukunft: Zeit und Drehung selbst bestimmen
+      const ms = Date.now() + plusSek * 1000;
+      dt = (ms - t.t) / 1000;
+      const g = A.gmst(ms), c = Math.cos(g), s = Math.sin(g), k = 1 / RE;
+      M = (this._mTmp = this._mTmp || new THREE.Matrix3()).set(c * k, s * k, 0, 0, 0, k, s * k, -c * k, 0);
+    }
     const p = t.pos, v = t.vel;
     const x = p[3 * i], y = p[3 * i + 1], z = p[3 * i + 2];
     const r = Math.sqrt(x * x + y * y + z * z);
     const a = -A.MU / (r * r * r);
     out.set(x + v[3 * i] * dt + 0.5 * a * x * dt * dt, y + v[3 * i + 1] * dt + 0.5 * a * y * dt * dt, z + v[3 * i + 2] * dt + 0.5 * a * z * dt * dt);
-    return out.applyMatrix3(this.uMat);
+    return out.applyMatrix3(M);
   }
 
   /** Bildschirmposition; null, wenn hinter der Erde oder hinter der Kamera */
@@ -627,6 +770,17 @@ export class Globus {
       this.sonnePunkt.geometry.attributes.position.setXYZ(0, v.x * 80, v.y * 80, v.z * 80);
       this.sonnePunkt.geometry.attributes.position.needsUpdate = true;
     }
+    if (!this._mondZeit || ms - this._mondZeit > 60000) {
+      // Mondlicht auf der Nachtseite (Richtung und Phase einmal pro Minute)
+      this._mondZeit = ms;
+      const m = A.mond(ms);
+      this._mondEci = m;
+      this.uni.uMondHell.value = Math.pow(A.mondPhase(ms), 1.5);
+    }
+    if (this._mondEci) {
+      const m = this._mondEci;
+      this.uni.uMond.value.set(m.x, m.y, m.z).applyMatrix3(this.uMat).normalize();
+    }
     this.ring.matrix.copy(this.uMat4);
     this.ring.matrixWorldNeedsUpdate = true;
 
@@ -636,7 +790,10 @@ export class Globus {
       let k = Math.min(1, (performance.now() - f.t0) / f.dauer);
       const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
       const dir = slerp(f.von, f.nach, e);
-      this.kamera.position.copy(dir.multiplyScalar(f.d0 + (f.d1 - f.d0) * e));
+      let d;
+      if (f.log) { const e2 = 1 - Math.pow(1 - k, 2.4); d = f.d0 * Math.pow(f.d1 / f.d0, e2); }
+      else d = f.d0 + (f.d1 - f.d0) * e;
+      this.kamera.position.copy(dir.multiplyScalar(d));
       if (k >= 1) this.flug = null;
       this.letzteAktion = performance.now();
     } else if (this.folgen && this.auswahl >= 0) {
@@ -652,7 +809,8 @@ export class Globus {
     const abstand = this.kamera.position.length();
     this.steuerung.rotateSpeed = Math.min(0.55, Math.max(0.04, (abstand - 1) * 0.32));
     this.steuerung.zoomSpeed = abstand < 1.6 ? 0.5 : 0.9;
-    if (abstand < 2.2) this._hochaufloesend();
+    // nah dran etwas größere Punkte
+    this.satUni.uZoom.value = Math.min(1.45, Math.max(0.9, Math.pow(3.2 / abstand, 0.45)));
     this.steuerung.update();
 
     this._sichtlinien();

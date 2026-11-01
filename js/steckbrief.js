@@ -3,11 +3,12 @@ import * as A from "./astro.js";
 import { KAT } from "./globus.js";
 import { LAND, STARTPLATZ, ART, BETRIEB, KAT_TEXT, bekannt, anzeigeName } from "./texte.js";
 import { esc, zahl, km, grad, mag, uhr, tag, dauer, datum, relativ, alterText, helligkeitWort } from "./ui.js";
+import { ortName } from "./orte.js";
 
 const LICHT_C = 299792.458; // km/s
 
 export function zustandText(st, d, sonneEl) {
-  if (!d) return { text: "Keine Bahndaten", ja: false };
+  if (!d) return (st & 1) && !(st & 2) ? { text: "Gerade unter deinem Horizont – von dir aus nicht zu sehen.", ja: false } : { text: "Keine Bahndaten", ja: false };
   if (st & 8) return { text: "Jetzt mit bloßem Auge zu sehen! Schau nach " + A.richtung(d.az) + ", " + Math.round(d.el) + "° hoch.", ja: true };
   if (!(st & 2)) return { text: "Gerade unter deinem Horizont – von dir aus nicht zu sehen.", ja: false };
   if (!(st & 4)) return { text: "Über dir, aber im Erdschatten – unsichtbar.", ja: false };
@@ -176,7 +177,9 @@ export function steckbriefAktualisieren(el, c) {
   setze("hoehe", km(d.hoehe));
   const kmh = d.tempo * 3600;
   setze("tempo", `${zahl(Math.round(kmh / 10) * 10)} km/h`);
-  setze("ueber", `${zahl(Math.abs(d.lat), 1)}° ${d.lat >= 0 ? "N" : "S"}, ${zahl(Math.abs(d.lon), 1)}° ${d.lon >= 0 ? "O" : "W"}`);
+  const wo = ortName(d.lat, d.lon);
+  const koord = `${zahl(Math.abs(d.lat), 1)}° ${d.lat >= 0 ? "N" : "S"}, ${zahl(Math.abs(d.lon), 1)}° ${d.lon >= 0 ? "O" : "W"}`;
+  setze("ueber", wo ? `${esc(wo)}<small class="klein-block">${koord}</small>` : koord);
   setze("licht", d.licht >= 0.99 ? "angestrahlt" : d.licht <= 0.01 ? "im Erdschatten" : "im Halbschatten");
   setze("fakt-tempo", `Er fliegt ${zahl(d.tempo, 2)} km pro Sekunde. Für die gut 600 km von Hamburg nach München bräuchte er nur ${zahl(612 / d.tempo)} Sekunden.`);
 }
