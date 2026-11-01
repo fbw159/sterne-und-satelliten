@@ -85,6 +85,27 @@ export class HimmelDaten {
         const z = this.sterne[k], sb = this.sbIndex[z[6]];
         if (sb && sb.hellster == null) sb.hellster = k;
       }
+      // Sterne der Sternbild-Figuren merken (Linienpunkte liegen < 0,1° an Katalogsternen)
+      this.figur = new Uint8Array(n);
+      const baender = new Map(); // 1°-Streifen der Deklination -> Sterne
+      for (let k = 0; k < n; k++) {
+        const b = Math.floor(this.sterne[k][1]);
+        if (!baender.has(b)) baender.set(b, []);
+        baender.get(b).push(k);
+      }
+      for (let q = 0; q < punkte.length; q += 2) {
+        const ra = punkte[q], dec = punkte[q + 1], c = Math.cos(dec * A.RAD);
+        let best = -1, bd = 0.2 * 0.2;
+        for (let b = Math.floor(dec) - 1; b <= Math.floor(dec) + 1; b++) {
+          for (const k of baender.get(b) || []) {
+            const z = this.sterne[k];
+            let dra = Math.abs(z[0] - ra); if (dra > 180) dra = 360 - dra;
+            const d = (dra * c) ** 2 + (z[1] - dec) ** 2;
+            if (d < bd) { bd = d; best = k; }
+          }
+        }
+        if (best >= 0) this.figur[best] = 1;
+      }
       this.bereit = true;
     })();
     return this._laedt;

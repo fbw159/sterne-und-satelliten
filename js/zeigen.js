@@ -17,12 +17,14 @@ const KAMERAWINKEL = 68; // typische Hauptkamera eines Handys entlang der langen
 const FARBEN = {
   normal: {
     nacht: "#02050c", text: "#eef2fb", leise: "rgba(200,212,236,0.75)", horizont: "rgba(120,200,255,0.8)", gitter: "rgba(170,190,240,0.2)",
-    boden: "rgba(4,8,14,0.74)", linie: "rgba(130,165,255,", sbName: "rgba(150,182,255,0.62)", sichtbar: "#ffe066", licht: "rgba(225,232,255,0.8)",
+    boden: "rgba(4,8,14,0.74)", linie: "rgba(140,175,255,", sbName: "rgba(170,198,255,0.86)", sichtbar: "#ffe066", licht: "rgba(225,232,255,0.8)",
+    linieFokus: "rgba(186,214,255,0.95)", sbFokus: "#d6e5ff",
     ziel: "#ffb340", gruen: "#5fe08a", iss: "#ffb340", stern: (k) => sternFarbe(k), schatten: "rgba(0,0,0,.6)",
   },
   rot: {
     nacht: "#000000", text: "#ff5a48", leise: "rgba(255,80,64,0.7)", horizont: "rgba(255,64,48,0.75)", gitter: "rgba(255,50,40,0.16)",
-    boden: "rgba(0,0,0,0.78)", linie: "rgba(255,60,45,", sbName: "rgba(255,80,64,0.55)", sichtbar: "#ff8a5a", licht: "rgba(255,95,80,0.75)",
+    boden: "rgba(0,0,0,0.78)", linie: "rgba(255,60,45,", sbName: "rgba(255,88,70,0.78)", sichtbar: "#ff8a5a", licht: "rgba(255,95,80,0.75)",
+    linieFokus: "rgba(255,120,95,0.95)", sbFokus: "#ff9a80",
     ziel: "#ff5a3c", gruen: "#ffa080", iss: "#ff7a50", stern: () => [255, 70, 55], schatten: "rgba(0,0,0,.8)",
   },
 };
@@ -333,6 +335,7 @@ export class Zeigen {
       const dx = e.clientX - start.x, dy = e.clientY - start.y;
       if (!start.bewegt && Math.hypot(dx, dy) > 8) start.bewegt = true;
       if (start.bewegt && !this.hatDaten) {
+        this._blickBewegt = true;
         const f = this.F || 600;
         this.blick.az = (start.az - dx / f * A.DEG + 360) % 360;
         this.blick.el = Math.max(-30, Math.min(89, start.el + dy / f * A.DEG));
@@ -415,9 +418,15 @@ export class Zeigen {
       name.textContent = d ? d.name : "Ziel";
     } else {
       name.textContent = "Himmel live";
-      zeile.textContent = this.ohneSensoren && !this.hatDaten
-        ? "Keine Lagesensoren gefunden – zum Umsehen ziehen. Am Handy geht es mit Kompass."
-        : "Handy hochhalten und umsehen · Antippen = Was ist das?";
+      let t;
+      if (this.ohneSensoren && !this.hatDaten && !this._blickBewegt) t = "Keine Lagesensoren gefunden – zum Umsehen ziehen. Am Handy geht es mit Kompass.";
+      else if (this._mitte) {
+        // wohin das Handy zeigt und welches Sternbild dort ist
+        const m = this._mitte;
+        t = m.el < -2 ? `Blick nach ${A.richtungLang(m.az)}, unter den Horizont` : `Blick nach ${A.richtungLang(m.az)}, ${Math.round(m.el)}° hoch`;
+        if (m.sb && this.einst.sternbilder) t += ` · Sternbild ${m.sb.de}`;
+      } else t = "Handy hochhalten und umsehen · Antippen = Was ist das?";
+      if (zeile.textContent !== t) zeile.textContent = t;
     }
   }
 
@@ -678,46 +687,98 @@ export class Zeigen {
     }
     const sternGrenze = sonneEl < -12 ? 6 : Math.max(1.6, Math.min(6, A.sichtGrenze(sonneEl, 6.5) + 1));
 
-    // Sternbild-Linien
-    if (HD.bereit && this.einst.sternbilder) {
-      const L = HD.lENU, S = HD.strecken;
-      g.lineWidth = 1.1;
-      g.strokeStyle = P.linie + (0.18 + 0.32 * dunkel) + ")";
-      g.beginPath();
+    // Blickmitte: Richtung und Sternbild (für Titelzeile und Hervorhebung), alle 250 ms
+    if (HD.bereit && performance.now() - (this._mitteZeit || 0) > 250) {
+      this._mitteZeit = performance.now();
+      const d = this._inv(cx, cy);
+      const r = enuZuAzEl(d[0], d[1], d[2]);
+      const rd = HD.enuZuRaDec(d[0], d[1], d[2]);
+      this._mitte = { az: r.az, el: r.el, sb: rd ? HD.sternbildAn(rd.ra, rd.dec) : null };
+      if (!this.ziel) this._titel();
+    }
+    // hervorgehobenes Sternbild: Ziel, angetipptes – sonst das in der Bildmitte
+    let fokus = null;
+    if (this.ziel && this.ziel.art === "sternbild") fokus = HD.sbIndex[this.ziel.k];
+    else if (this.gewaehlt && this.gewaehlt.art === "sternbild") fokus = HD.sbIndex[this.gewaehlt.k];
+    else if (this.einst.sternbilder && this._mitte && this._mitte.sb) fokus = this._mitte.sb;
+    if (fokus && !this.einst.sternbilder && !(this.ziel && this.ziel.art === "sternbild")) fokus = null;
+    const fokusJ = fokus ? fokus.j : -1;
+    let fokusX = 0, fokusY = 0, fokusN = 0;
+
+    // Sternbild-Linien: mit Lücke an den Sternen, kräftiger, das hervorgehobene noch deutlicher
+    if (HD.bereit && (this.einst.sternbilder || fokusJ >= 0)) {
+      const L = HD.lENU, S = HD.strecken, SB = HD.streckeSb;
+      const luecke = 4.5; // Abstand der Linie zum Stern in Pixeln
+      const normal = [], hervor = [];
+      // Mitte der sichtbaren Linien je Sternbild (dort steht der Name, wenn der Beschriftungsort außerhalb liegt)
+      const nSb = HD.sternbilder.length;
+      if (!this._sbSumme || this._sbSumme.length !== 3 * nSb) this._sbSumme = new Float32Array(3 * nSb);
+      const SUM = this._sbSumme;
+      SUM.fill(0);
+      const merke = (j, x, y) => { if (x > 0 && x < w && y > 0 && y < h) { SUM[3 * j] += x; SUM[3 * j + 1] += y; SUM[3 * j + 2]++; } };
       for (let k = 0; k < S.length; k += 2) {
+        const j = SB[k >> 1];
+        if (!this.einst.sternbilder && j !== fokusJ) continue;
         const a = 3 * S[k], b = 3 * S[k + 1];
         let ae = L[a], an = L[a + 1], au = L[a + 2], be = L[b], bn = L[b + 1], bu = L[b + 2];
         let za = ae * fx + an * fy + au * fz, zb = be * fx + bn * fy + bu * fz;
         if (za < 0.05 && zb < 0.05) continue;
+        let schnittA = false, schnittB = false;
         if (za < 0.05 || zb < 0.05) {
           // auf die Ebene knapp vor der Kamera kürzen (Gerade bleibt Gerade)
           const t = (0.05 - za) / (zb - za);
           const ne = ae + (be - ae) * t, nn = an + (bn - an) * t, nu = au + (bu - au) * t;
-          if (za < 0.05) { ae = ne; an = nn; au = nu; za = 0.05; } else { be = ne; bn = nn; bu = nu; zb = 0.05; }
+          if (za < 0.05) { ae = ne; an = nn; au = nu; za = 0.05; schnittA = true; } else { be = ne; bn = nn; bu = nu; zb = 0.05; schnittB = true; }
         }
-        const pa = { x: cx + F * (ae * rx + an * ry + au * rz) / za, y: cy - F * (ae * ux + an * uy + au * uz) / za };
-        const pb = { x: cx + F * (be * rx + bn * ry + bu * rz) / zb, y: cy - F * (be * ux + bn * uy + bu * uz) / zb };
-        if ((pa.x < 0 && pb.x < 0) || (pa.x > w && pb.x > w) || (pa.y < 0 && pb.y < 0) || (pa.y > h && pb.y > h)) continue;
-        g.moveTo(pa.x, pa.y); g.lineTo(pb.x, pb.y);
+        let xa = cx + F * (ae * rx + an * ry + au * rz) / za, ya = cy - F * (ae * ux + an * uy + au * uz) / za;
+        let xb = cx + F * (be * rx + bn * ry + bu * rz) / zb, yb = cy - F * (be * ux + bn * uy + bu * uz) / zb;
+        if ((xa < 0 && xb < 0) || (xa > w && xb > w) || (ya < 0 && yb < 0) || (ya > h && yb > h)) continue;
+        const dx = xb - xa, dy = yb - ya, len = Math.hypot(dx, dy);
+        if (len < 2 * luecke + 2) continue;
+        const ex = dx / len * luecke, ey = dy / len * luecke;
+        if (!schnittA) { xa += ex; ya += ey; }
+        if (!schnittB) { xb -= ex; yb -= ey; }
+        if (j === fokusJ) {
+          hervor.push(xa, ya, xb, yb);
+          if (xa > 0 && xa < w && ya > 0 && ya < h) { fokusX += xa; fokusY += ya; fokusN++; }
+          if (xb > 0 && xb < w && yb > 0 && yb < h) { fokusX += xb; fokusY += yb; fokusN++; }
+        } else { normal.push(xa, ya, xb, yb); merke(j, xa, ya); merke(j, xb, yb); }
       }
-      g.stroke();
+      const pfad = (arr) => { g.beginPath(); for (let q = 0; q < arr.length; q += 4) { g.moveTo(arr[q], arr[q + 1]); g.lineTo(arr[q + 2], arr[q + 3]); } };
+      g.lineCap = "round";
+      if (normal.length) {
+        // dunkler Rand: hebt die Linien auch vom Kamerabild und vom Dämmerungshimmel ab
+        if (this.stream || dunkel < 0.8) { g.strokeStyle = "rgba(0,0,0,0.45)"; g.lineWidth = 3.4; pfad(normal); g.stroke(); }
+        g.strokeStyle = P.linie + (0.38 + 0.3 * dunkel) + ")"; g.lineWidth = 1.5; pfad(normal); g.stroke();
+      }
+      if (hervor.length) {
+        g.strokeStyle = "rgba(0,0,0,0.5)"; g.lineWidth = 4.6; pfad(hervor); g.stroke();
+        g.strokeStyle = P.linieFokus; g.lineWidth = 2.4; pfad(hervor); g.stroke();
+      }
+      g.lineCap = "butt";
     }
 
-    // Sterne (nach Helligkeit gruppiert, damit es schnell geht)
+    // Sterne (nach Helligkeit gruppiert, damit es schnell geht); Sterne der Figuren etwas kräftiger
     if (HD.bereit) {
-      const E = HD.sENU, Z = HD.sterne, n = Z.length;
+      const E = HD.sENU, Z = HD.sterne, n = Z.length, FIG = this.einst.sternbilder ? HD.figur : null;
       const stufen = [[], [], [], [], [], []];
       const hell = [];
       for (let k = 0; k < n; k++) {
         const m = Z[k][2];
-        if (m > sternGrenze) break; // nach Helligkeit sortiert
+        if (m > sternGrenze + 0.5) break; // nach Helligkeit sortiert
+        const fig = FIG && FIG[k];
+        if (m > sternGrenze && !fig) continue;
         const e = E[3 * k], nn = E[3 * k + 1], u = E[3 * k + 2];
         const z = e * fx + nn * fy + u * fz;
         if (z < cosRand) continue;
         const x = cx + F * (e * rx + nn * ry + u * rz) / z, y = cy - F * (e * ux + nn * uy + u * uz) / z;
         if (x < -4 || x > w + 4 || y < -4 || y > h + 4) continue;
         if (m < 1.5) hell.push([x, y, k]);
-        else stufen[m < 2.5 ? 0 : m < 3.2 ? 1 : m < 3.9 ? 2 : m < 4.6 ? 3 : m < 5.3 ? 4 : 5].push(x, y);
+        else {
+          let st = m < 2.5 ? 0 : m < 3.2 ? 1 : m < 3.9 ? 2 : m < 4.6 ? 3 : m < 5.3 ? 4 : 5;
+          if (fig) st = Math.max(0, st - 1);
+          stufen[st].push(x, y);
+        }
         if (m < 4.2 || Z[k][4]) treffer({ x, y }, { art: "stern", k }, m < 2 ? 1.4 : 1);
       }
       const radien = [2.3, 1.85, 1.5, 1.2, 0.95, 0.75];
@@ -747,16 +808,40 @@ export class Zeigen {
       for (const [x, y, k] of hell) { et.sperre(x, y, 3); if (Z[k][4] && k !== zielK) et.dazu(Z[k][4], x, y, 3, P.leise, "11.5px system-ui, sans-serif", 4 - Z[k][2]); }
     }
 
-    // Sternbild-Namen
-    if (HD.bereit && this.einst.sternbilder) {
-      const E = HD.labENU;
+    // Sternbild-Namen: normale Schreibweise; das hervorgehobene groß, mit lateinischem Namen darunter
+    if (HD.bereit && (this.einst.sternbilder || fokusJ >= 0)) {
+      const E = HD.labENU, SUM = this._sbSumme;
+      let fokusP = null;
+      const benannt = new Set();
       for (let k = 0; k < HD.labSb.length; k++) {
         const sb = HD.sternbilder[HD.labSb[k]];
-        if (sb.rang > 2 && this.zoom < 1.4) continue;
         const p = projE(E[3 * k], E[3 * k + 1], E[3 * k + 2]);
+        if (sb.j === fokusJ) { if (imBild(p, -10) && !fokusP) fokusP = p; continue; }
+        if (!this.einst.sternbilder) continue;
+        if (sb.rang > 2 && this.zoom < 1.4) continue;
         if (!imBild(p, -10)) continue;
-        et.dazu(sb.de.toUpperCase(), p.x, p.y, null, P.sbName, "600 11.5px system-ui, sans-serif", 0.5 - sb.rang * 0.1);
+        benannt.add(sb.j);
+        et.dazu(sb.de, p.x, p.y, null, P.sbName, "600 12.5px system-ui, sans-serif", 3 - sb.rang * 0.5);
         treffer(p, { art: "sternbild", k: sb.k }, 0.5);
+      }
+      // Figuren im Bild, deren Beschriftungsort draußen liegt: Name in die Mitte der sichtbaren Linien
+      if (this.einst.sternbilder && SUM) {
+        for (const sb of HD.sternbilder) {
+          const j = sb.j, n = SUM[3 * j + 2];
+          if (j === fokusJ || benannt.has(j) || n < 3 || (sb.rang > 2 && this.zoom < 1.4)) continue;
+          const p = { x: SUM[3 * j] / n, y: SUM[3 * j + 1] / n };
+          et.dazu(sb.de, p.x, p.y, null, P.sbName, "600 12.5px system-ui, sans-serif", 2.8 - sb.rang * 0.5);
+          treffer(p, { art: "sternbild", k: sb.k }, 0.5);
+        }
+      }
+      if (fokus) {
+        // Name dorthin, wo die Figur gerade zu sehen ist (bei großen Sternbildern liegt der Beschriftungsort oft außerhalb)
+        const p = fokusN >= 2 ? { x: fokusX / fokusN, y: fokusY / fokusN } : fokusP;
+        if (p && !(this.ziel && this.ziel.art === "sternbild" && this.ziel.k === fokus.k)) {
+          et.dazu(fokus.de, p.x, p.y, null, P.sbFokus, "700 15px system-ui, sans-serif", 9.5, true);
+          if (fokus.la && fokus.la !== fokus.de) et.dazu(fokus.la, p.x, p.y + 17, null, P.sbName, "italic 11.5px system-ui, sans-serif", 9.4);
+        }
+        if (p) treffer(p, { art: "sternbild", k: fokus.k }, 0.6);
       }
     }
 

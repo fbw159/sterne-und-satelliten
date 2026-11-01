@@ -77,7 +77,7 @@ takter.onmessage = (e) => {
 function globusErsatz() {
   // ohne WebGL: alles außer dem Globus funktioniert weiter
   const leer = () => {};
-  const o0 = { folgen: false, ring: { visible: true }, bahnIdx: -1, satPosition: () => null };
+  const o0 = { folgen: false, ring: { visible: true }, bahnIdx: -1, satPosition: () => null, bedient: false, ansicht: null };
   o0.setzeBahnZiel = (i) => { o0.bahnIdx = i; };
   return new Proxy(o0, {
     get: (o, k) => (k in o ? o[k] : leer),
@@ -533,12 +533,13 @@ function nachTakt() {
   kurzZeile();
   issChip();
   if (auswahl >= 0) steckbriefLive();
-  if (jetzt - letzteListe > 2000) {
+  // während der Globus gezogen wird, die Listen nicht neu aufbauen (das kostet Bilder)
+  if (jetzt - letzteListe > 2000 && !globus.bedient) {
     letzteListe = jetzt;
     if (!$("#seite-oben").hidden && (PC.matches || blatt.dataset.hoehe !== "klein")) listeZeichnen();
     if (!$("#seite-iss").hidden) issZeichnen();
   }
-  if (!$("#seite-himmel").hidden) himmelZeichnen();
+  if (!$("#seite-himmel").hidden && !globus.bedient) himmelZeichnen();
   if (boxArt === "objekt" && jetzt - objektZeit > 2000) objektInfo();
   // Bahnlinie regelmäßig neu
   const bz = auswahl >= 0 ? auswahl : issIdx;
@@ -1149,7 +1150,7 @@ const zeigen = new Zeigen({
   issIdx: () => issIdx,
   satBahn: (i) => frage(vorher, { typ: "himmelsbahn", id: sats[i][0], sat: sats[i], von: Date.now() - 60000, bis: Date.now() + 15 * 60000, schritt: 5000 }),
   onSteckbrief: (i) => waehle(i),
-  onRot: (an) => { $("#opt-rot").checked = an; },
+  onRot: (an) => { $("#opt-rot").checked = an; $("#knopf-rot").setAttribute("aria-pressed", String(an)); },
   onEinst: () => { himmelSchalter(); if (!$("#seite-himmel").hidden) himmelZeichnen(); },
   melde: (t) => melde(t, 5),
   onAuf: () => { globus.pause(true); infoLaden(); },
@@ -1243,6 +1244,8 @@ function einstellungenFuellen() {
 }
 $("#knopf-einstellungen").addEventListener("click", () => { einstellungenFuellen(); $("#einstellungen").showModal(); });
 $("#knopf-hilfe").addEventListener("click", () => $("#hilfe").showModal());
+$("#knopf-rot").addEventListener("click", () => zeigen.setzeRot(!zeigen.einst.rot));
+$("#knopf-rot").setAttribute("aria-pressed", String(!!zeigen.einst.rot));
 // Dialog schließen, wenn man daneben tippt
 for (const d of $$("dialog")) d.addEventListener("click", (e) => { if (e.target === d) d.close(); });
 $("#knopf-ort").addEventListener("click", () => { globus.zuMir(); if (!ort || ort.quelle !== "gps" || Date.now() - ort.zeit > 10 * 60000) gpsHolen(true); });

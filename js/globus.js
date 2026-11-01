@@ -428,6 +428,7 @@ export class Globus {
   // ------------------------------------------------------------ Daten
   setzeKatalog(kats, namen, issIdx) {
     this.tick = null;
+    this._wartTakt = null;
     this.kats = kats;
     this.namen = namen;
     this.issIdx = issIdx;
@@ -452,8 +453,13 @@ export class Globus {
 
   setzeFilter(filter) { this.filter = filter; if (this.tick) this._faerben(); }
 
+  /** neue Positionen vom Rechen-Worker. Während der Globus bedient wird, kurz zurückstellen:
+      Das Hochladen von ~16.000 Positionen kostet ein Bild – das ruckelt beim Ziehen.
+      Bis dahin schreibt der Grafikprozessor die alten Positionen einfach weiter fort. */
   setzeTakt(tick) {
-    if (!this.n || tick.pos.length !== 3 * this.n) return;
+    if (!this.n || tick.pos.length !== 3 * this.n) { if (tick === this._wartTakt) this._wartTakt = null; return; }
+    if (this.tick && this.steuerung.bedient && Date.now() - this.tick.t < 6000) { this._wartTakt = tick; return; }
+    this._wartTakt = null;
     this.tick = tick;
     this.aPos.array.set(tick.pos);
     this.aVel.array.set(tick.vel);
@@ -587,6 +593,19 @@ export class Globus {
     const v = 2 * Math.atan(Math.tan(hMin / 2) / this.kamera.aspect) * A.DEG;
     this.kamera.fov = Math.min(75, Math.max(40, v));
     this._ansicht();
+  }
+
+  /** wird der Globus gerade bedient (Finger, Schwung, Zoom)? */
+  get bedient() { return this.steuerung.bedient; }
+
+  /** feinere oder gröbere Auflösung (auf langsamen Geräten für flüssiges Ziehen) */
+  _aufloesung(pr) {
+    this.pr = pr;
+    this.renderer.setPixelRatio(pr);
+    this.groesse();
+    this.satUni.uPx.value = pr;
+    if (this.sternUni) this.sternUni.uPx.value = pr;
+    this.sonnePunkt.material.uniforms.uPx.value = pr;
   }
 
   /** Abstand, bei dem die Erde gut ins Bild passt */
@@ -777,7 +796,19 @@ export class Globus {
     requestAnimationFrame(this._schleife);
     // Strom sparen: ohne Bedienung ~30 Bilder/s
     if (performance.now() - this.letzteAktion > 4000 && this._letztesBild && jetzt - this._letztesBild < 30) return;
+    const bildDt = this._letztesBild ? Math.min(0.1, (jetzt - this._letztesBild) / 1000) : 0.016;
+    // Ruckelt es beim Bedienen (unter ~40 Bilder/s), die Auflösung schrittweise senken
+    if (this._letztesBild && this.steuerung.bedient) {
+      (this._bildZeiten = this._bildZeiten || []).push(jetzt - this._letztesBild);
+      if (this._bildZeiten.length >= 45) {
+        const z = this._bildZeiten.sort((a, b) => a - b)[22];
+        this._bildZeiten = [];
+        if (z > 25 && this.pr > 1) this._aufloesung(Math.max(1, Math.round((this.pr - 0.25) * 4) / 4));
+      }
+    }
     this._letztesBild = jetzt;
+    // zurückgestellte Positionen übernehmen, sobald nicht mehr gezogen wird
+    if (this._wartTakt && !this.steuerung.bedient) this.setzeTakt(this._wartTakt);
     const ms = Date.now();
     this._matrix(ms);
     this.dt = this.tick ? (ms - this.tick.t) / 1000 : 0;
@@ -811,7 +842,7 @@ export class Globus {
       if (p) {
         const r = p.length();
         const pose = st.pose;
-        const ll = latLonVon(basis(pose.lat, pose.lon).U.lerp(p.divideScalar(r), 0.12).normalize());
+        const ll = latLonVon(basis(pose.lat, pose.lon).U.lerp(p.divideScalar(r), 1 - Math.exp(-bildDt / 0.13)).normalize());
         pose.lat = ll.lat; pose.lon = ll.lon;
         pose.abstand = Math.max(pose.abstand, r - 1 + 0.35);
         st.anwenden();
