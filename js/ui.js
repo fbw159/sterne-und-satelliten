@@ -90,11 +90,10 @@ export function melde(text, sek = 5, knopf = null) {
   if (sek) meldungTimer = setTimeout(() => (el.hidden = true), sek * 1000);
 }
 
-export const speicher = {
-  lies(k, ersatz = null) {
-    try { const v = localStorage.getItem(k); return v == null ? ersatz : JSON.parse(v); } catch { return ersatz; }
-  },
-  schreib(k, v) {
-    try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* privat/voll – egal */ }
-  },
-};
+/* Die Seite merkt sich nichts: Jeder Besuch beginnt im Ursprungszustand (Wunsch des Nutzers).
+   Frühere Versionen hatten Einstellungen, Standort und Auswahl im Browser abgelegt – diese Einträge
+   werden beim Start gelöscht. Nur die eigenen Schlüssel: unter fbw159.github.io liegen auch andere Seiten. */
+const ALTE_EINTRAEGE = ["sus.einstellungen", "sus.ort", "sus.himmelLive", "sus.kompassKorrektur", "sus.sucheFilter", "sus.kern2", "sus.aktivVersuch"];
+export function altesVergessen() {
+  try { for (const k of ALTE_EINTRAEGE) localStorage.removeItem(k); } catch { /* kein Speicher – nichts zu löschen */ }
+}

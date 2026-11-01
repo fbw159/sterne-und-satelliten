@@ -1,7 +1,7 @@
 // Satelliten über mir – Hauptprogramm
 import { Globus, KAT } from "./globus.js";
 import * as A from "./astro.js";
-import { $, $$, esc, zahl, km, mag, uhr, tag, datum, melde, speicher, helligkeitWort } from "./ui.js";
+import { $, $$, esc, zahl, km, mag, uhr, tag, datum, melde, altesVergessen, helligkeitWort } from "./ui.js";
 import { steckbriefHtml, steckbriefAktualisieren, wikiLaden, passHtml, zustandText } from "./steckbrief.js";
 import { bekannt, anzeigeName, betreiber, artWort } from "./texte.js";
 import { Himmel } from "./himmel.js";
@@ -16,15 +16,13 @@ const ERSATZ_ORT = { lat: 52.5163, lon: 13.3777, name: "Berlin" };
 const PC = window.matchMedia("(min-width: 900px)");
 
 // ---------------------------------------------------------------- Einstellungen
+// Gelten nur, solange die Seite offen ist – beim nächsten Öffnen wieder alles wie hier (nichts wird gespeichert).
+altesVergessen();
 const STANDARD = {
   filter: Object.fromEntries(Object.keys(KAT).map((k) => [k, true])),
-  himmel: 4.5, ab10: false, linien: true, namen: true, alle: true, liste: "hell", uebersicht: false,
+  himmel: 4.5, ab10: false, linien: true, namen: true, liste: "hell", uebersicht: false,
 };
-const E = Object.assign({}, STANDARD, speicher.lies("sus.einstellungen", {}));
-E.filter = Object.assign({}, STANDARD.filter, E.filter || {});
-// früherer Fehler: der Planeten-Knopf der Himmelskarte hat die Listenauswahl gelöscht
-if (!["sichtbar", "hell", "alle"].includes(E.liste)) E.liste = "hell";
-const sichern = () => speicher.schreib("sus.einstellungen", E);
+const E = { ...STANDARD, filter: { ...STANDARD.filter } };
 
 // ---------------------------------------------------------------- Zustand
 let sats = [];             // Datensätze (kern + alle), Index = Position im Worker
@@ -197,7 +195,7 @@ function zeigeReiter(r, auch = true) {
 }
 for (const b of $$(".reiter button")) b.addEventListener("click", () => zeigeReiter(b.dataset.reiter));
 for (const b of $$("button[data-filter]")) b.addEventListener("click", () => {
-  E.liste = b.dataset.filter; sichern(); zeigeBis = 150;
+  E.liste = b.dataset.filter; zeigeBis = 150;
   for (const x of $$("button[data-filter]")) x.setAttribute("aria-pressed", String(x === b));
   listeZeichnen(true);
 });
@@ -206,7 +204,6 @@ for (const x of $$("button[data-filter]")) x.setAttribute("aria-pressed", String
 // ---------------------------------------------------------------- Standort
 function ortSetzen(lat, lon, quelle, genau = null) {
   ort = { lat, lon, quelle, genau, zeit: Date.now() };
-  if (quelle !== "ersatz") speicher.schreib("sus.ort", ort);
   B = A.beobachter(lat, lon, 0);
   takter.postMessage({ typ: "ort", lat, lon, h: 0 });
   vorher.postMessage({ typ: "ort", lat, lon, h: 0 });
@@ -221,25 +218,29 @@ function ortSetzen(lat, lon, quelle, genau = null) {
 }
 function ortText() {
   if (!ort) return;
-  const q = { gps: "", gespeichert: " (zuletzt)", gewählt: " (gewählt)", ersatz: ` (Ersatz: ${ERSATZ_ORT.name})` }[ort.quelle] || "";
+  const q = { gps: "", gewählt: " (gewählt)", ersatz: ` (Ersatz: ${ERSATZ_ORT.name})` }[ort.quelle] || "";
   $("#ort-text").textContent = `📍 ${zahl(Math.abs(ort.lat), 2)}° ${ort.lat >= 0 ? "N" : "S"}, ${zahl(Math.abs(ort.lon), 2)}° ${ort.lon >= 0 ? "O" : "W"}${q}`;
   $("#ort-lat").value = ort.lat.toFixed(4);
   $("#ort-lon").value = ort.lon.toFixed(4);
   $("#ort-info").textContent = ort.quelle === "gps"
-    ? `Bestimmt per GPS/WLAN${ort.genau ? ", auf etwa " + zahl(Math.max(1, Math.round(ort.genau))) + " m genau" : ""}. Der Standort bleibt auf deinem Gerät.`
+    ? `Bestimmt per GPS/WLAN${ort.genau ? ", auf etwa " + zahl(Math.max(1, Math.round(ort.genau))) + " m genau" : ""}. Der Standort wird nicht gespeichert und nirgendwohin geschickt.`
     : ort.quelle === "ersatz" ? "Dein Standort ist nicht freigegeben – bis dahin wird Berlin angenommen."
-    : "Der Standort bleibt auf deinem Gerät.";
+    : "Selbst gewählt – gilt, bis du die Seite schließt. Der Standort wird nicht gespeichert.";
 }
 function gpsHolen(laut = false) {
   if (!navigator.geolocation) { if (!ort) ortSetzen(ERSATZ_ORT.lat, ERSATZ_ORT.lon, "ersatz"); return; }
   if (laut) melde("Standort wird bestimmt …", 4);
+  // hat jemand inzwischen selbst einen Ort gewählt, gilt der – außer bei ausdrücklichem „Standort neu bestimmen“
+  const gewaehltGilt = () => !laut && ort && ort.quelle === "gewählt";
   navigator.geolocation.getCurrentPosition(
     (p) => {
+      if (gewaehltGilt()) return;
       const neu = !ort || ort.quelle !== "gps" || Math.hypot(p.coords.latitude - ort.lat, p.coords.longitude - ort.lon) > 0.005;
       if (neu) ortSetzen(p.coords.latitude, p.coords.longitude, "gps", p.coords.accuracy);
       if (laut) melde("Standort aktualisiert.", 3);
     },
     (err) => {
+      if (gewaehltGilt()) return;
       if (!ort) ortSetzen(ERSATZ_ORT.lat, ERSATZ_ORT.lon, "ersatz");
       const grund = err.code === 1 ? "Standort nicht freigegeben" : "Standort nicht verfügbar";
       melde(`${grund} – ${ort.quelle === "ersatz" ? "es wird Berlin angenommen" : "der zuletzt bekannte Ort wird genutzt"}. Du kannst den Ort in den Einstellungen wählen.`, 9,
@@ -278,7 +279,7 @@ async function datenLaden() {
     startFertig();
     if (ort) vorhersagenStarten();
     taktAnfordern();
-    if (E.alle) await alleLaden();
+    await alleLaden();
     standPruefen();
     holeJson("data/stand.json").then((s) => { stand = Object.assign(stand || {}, s, { erzeugt: Date.parse(s.erzeugt) }); datenInfo(); }).catch(() => {});
     himmelDaten.laden().then(() => globus.sterne(himmelDaten.sterne, Date.now())).catch(() => {});
@@ -398,7 +399,11 @@ function kurzSaetze(objekte) {
   return out;
 }
 
-/** kleiner Zwischenspeicher im Browser (IndexedDB) für die großen Bahndaten */
+/** Zwischenspeicher im Browser (IndexedDB) – nur für öffentliche Bahndaten von CelesTrak, nichts über dich und
+    keine Einstellungen. Grund: CelesTrak gibt dieselben Daten nur einmal je Aktualisierung (alle 2 Stunden) heraus,
+    sonst kommt Fehler 403, und nach vielen Fehlern wird die IP-Adresse gesperrt; dazu ist die Liste aller aktiven
+    Satelliten ca. 3 MB groß. Schlüssel: „hell“ (Raumstationen und helle Satelliten), „aktiv“ (alle aktiven),
+    „versuch“ (Zeit des letzten Abrufversuchs aller aktiven). */
 const ablage = {
   db: null,
   async oeffnen() {
@@ -451,12 +456,12 @@ async function standPruefen() {
     if (jetzt - neuesteEpoche() > 6 * 3600000) {
       try {
         let liste, zeit = jetzt;
-        const gemerkt = speicher.lies("sus.kern2", null);
-        if (gemerkt && jetzt - gemerkt.zeit < 2 * 3600000) { liste = gemerkt.daten; zeit = gemerkt.zeit; }
+        const gemerkt = await ablage.lies("hell");
+        if (gemerkt && gemerkt.daten && jetzt - gemerkt.zeit < 2 * 3600000) { liste = gemerkt.daten; zeit = gemerkt.zeit; }
         else {
           const [a, b] = await Promise.all([holeText(CELESTRAK + "stations", 15), holeText(CELESTRAK + "visual", 15)]);
           liste = kurzSaetze(csvLesen(a).concat(csvLesen(b)));
-          speicher.schreib("sus.kern2", { zeit: jetzt, daten: liste });
+          await ablage.schreib("hell", { zeit: jetzt, daten: liste });
         }
         const neu = bahnUebernehmen(liste);
         if (neu.length) {
@@ -473,8 +478,8 @@ async function standPruefen() {
     if (alleGeladen && (jetzt - stand.erzeugt > 24 * 3600000 || jetzt - mittlereEpoche() > 3 * 86400000)) {
       let k = await ablage.lies("aktiv");
       if (!k || jetzt - k.zeit > 24 * 3600000) {
-        if (jetzt - (speicher.lies("sus.aktivVersuch", 0) || 0) > 3600000) {
-          speicher.schreib("sus.aktivVersuch", jetzt);
+        if (jetzt - ((await ablage.lies("versuch")) || 0) > 3600000) {
+          await ablage.schreib("versuch", jetzt);
           try {
             const liste = kurzSaetze(csvLesen(await holeText(CELESTRAK + "active", 120)));
             if (liste.length > 5000) { k = { zeit: jetzt, daten: liste }; await ablage.schreib("aktiv", k); }
@@ -498,7 +503,7 @@ setInterval(() => { if (datenDa && !document.hidden) standPruefen(); }, 30 * 600
 
 function datenInfo() {
   const n = sats.length;
-  let t = `${zahl(n)} Objekte geladen${E.alle ? "" : " (nur helle Satelliten und Raumstationen)"}.`;
+  let t = `${zahl(n)} Objekte geladen.`;
   const ep = neuesteEpoche();
   if (ep) t += ` Neueste Bahndaten (Raumstationen, helle Satelliten) vom ${datum(ep)}, ${uhr(ep)} Uhr.`;
   if (stand && stand.browser) t += ` Zuletzt um ${uhr(stand.browser)} Uhr direkt bei CelesTrak nachgesehen.`;
@@ -1196,7 +1201,7 @@ function globusKnoepfe() {
 }
 
 function uebersichtSetzen(an) {
-  E.uebersicht = an; sichern();
+  E.uebersicht = an;
   globus.setzeUebersicht(an);
   $("#knopf-ueberblick").setAttribute("aria-pressed", String(an));
   legendeZeichnen();
@@ -1221,7 +1226,7 @@ $("#ueberblick-legende").addEventListener("click", (e) => {
   if (b) filterSetzen(b.dataset.kat, E.filter[b.dataset.kat] === false);
 });
 function filterSetzen(k, an) {
-  E.filter[k] = an; sichern();
+  E.filter[k] = an;
   globus.setzeFilter(E.filter);
   listeZeichnen(true); kurzZeile(); issChip(); legendeZeichnen();
   if (!$("#seite-himmel").hidden) himmelZeichnen();
@@ -1237,7 +1242,6 @@ function einstellungenFuellen() {
   $("#opt-ab10").checked = E.ab10;
   $("#opt-linien").checked = E.linien;
   $("#opt-namen").checked = E.namen;
-  $("#opt-alle").checked = E.alle;
   $("#opt-rot").checked = zeigen.einst.rot;
   datenInfo();
   ortText();
@@ -1254,19 +1258,14 @@ $("#kat-auswahl").addEventListener("change", (e) => {
   if (k) filterSetzen(k, e.target.checked);
 });
 $("#himmel-wahl").addEventListener("change", (e) => {
-  E.himmel = Number(e.target.value); sichern();
+  E.himmel = Number(e.target.value);
   takter.postMessage({ typ: "himmel", wert: E.himmel });
   vorher.postMessage({ typ: "himmel", wert: E.himmel });
   issPaesse = null; nachtListe = null; vorhersagenStarten(); taktAnfordern(true);
 });
-$("#opt-ab10").addEventListener("change", (e) => { E.ab10 = e.target.checked; sichern(); listeZeichnen(true); kurzZeile(); });
-$("#opt-linien").addEventListener("change", (e) => { E.linien = e.target.checked; sichern(); globus.zeigeLinien = E.linien; });
-$("#opt-namen").addEventListener("change", (e) => { E.namen = e.target.checked; sichern(); globus.zeigeNamen = E.namen; });
-$("#opt-alle").addEventListener("change", (e) => {
-  E.alle = e.target.checked; sichern();
-  if (E.alle) alleLaden();
-  else melde("Wird beim nächsten Öffnen der Seite wirksam.", 4);
-});
+$("#opt-ab10").addEventListener("change", (e) => { E.ab10 = e.target.checked; listeZeichnen(true); kurzZeile(); });
+$("#opt-linien").addEventListener("change", (e) => { E.linien = e.target.checked; globus.zeigeLinien = E.linien; });
+$("#opt-namen").addEventListener("change", (e) => { E.namen = e.target.checked; globus.zeigeNamen = E.namen; });
 $("#opt-rot").addEventListener("change", (e) => zeigen.setzeRot(e.target.checked));
 $("#ort-gps").addEventListener("click", () => gpsHolen(true));
 $("#ort-tippen").addEventListener("click", () => {
@@ -1304,15 +1303,10 @@ function startFertig() {
 (function start() {
   takter.postMessage({ typ: "himmel", wert: E.himmel });
   vorher.postMessage({ typ: "himmel", wert: E.himmel });
-  const gemerkt = speicher.lies("sus.ort", null);
-  if (gemerkt && Number.isFinite(gemerkt.lat) && Number.isFinite(gemerkt.lon)) {
-    ortSetzen(gemerkt.lat, gemerkt.lon, gemerkt.quelle === "gewählt" ? "gewählt" : "gespeichert", gemerkt.genau);
-    if (gemerkt.quelle !== "gewählt") gpsHolen(false);
-  } else {
-    gpsHolen(false);
-    // Wer die Standortfrage noch nicht beantwortet hat, sieht so lange Berlin
-    setTimeout(() => { if (!ort) { ortSetzen(ERSATZ_ORT.lat, ERSATZ_ORT.lon, "ersatz"); melde("Bis dein Standort freigegeben ist, wird Berlin angenommen.", 6); } }, 8000);
-  }
+  // Standort bei jedem Besuch neu bestimmen (nichts gespeichert)
+  gpsHolen(false);
+  // Wer die Standortfrage noch nicht beantwortet hat, sieht so lange Berlin
+  setTimeout(() => { if (!ort) { ortSetzen(ERSATZ_ORT.lat, ERSATZ_ORT.lon, "ersatz"); melde("Bis dein Standort freigegeben ist, wird Berlin angenommen.", 6); } }, 8000);
   datenLaden();
   versatzAnpassen();
   // Nach spätestens 12 s die Ladeanzeige weg, auch wenn ein Bild fehlt

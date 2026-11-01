@@ -6,7 +6,7 @@ import * as A from "./astro.js";
 import { mondZeichnen } from "./himmel.js";
 import { PLANETEN, astronomieLaden, azElZuEnu, enuZuAzEl } from "./himmelsdaten.js";
 import { infoHtml } from "./wasistdas.js";
-import { speicher, zahl, esc, uhr, tag } from "./ui.js";
+import { zahl, esc, uhr, tag } from "./ui.js";
 import { Etiketten } from "./etiketten.js";
 import { suchEintraege, suchen, nieZuSehen } from "./suche.js";
 
@@ -51,9 +51,9 @@ export class Zeigen {
     this.absolut = false;
     this.iosVersatz = null;
     this.deklination = 0;
-    this.korrektur = speicher.lies("sus.kompassKorrektur", 0) || 0;
-    const e = speicher.lies("sus.himmelLive", {});
-    this.einst = { satelliten: e.satelliten !== false, sternbilder: e.sternbilder !== false, planeten: e.planeten !== false, rot: !!e.rot };
+    // nichts gespeichert: bei jedem Besuch alles im Ursprungszustand
+    this.korrektur = 0;
+    this.einst = { satelliten: true, sternbilder: true, planeten: true, rot: false };
     this.offen = false;
     this.imZiel = false;
     this.zuletztVibriert = 0;
@@ -85,7 +85,7 @@ export class Zeigen {
       if (ev.key === "Enter") { ev.preventDefault(); const t = this._sucheTreffer && this._sucheTreffer[0]; if (t) this._sucheWahl(t, true); }
       else if (ev.key === "Escape") this.sucheSchliessen();
     });
-    this.sucheFilter = ["alle", "0", "1", "2", "3"].includes(speicher.lies("sus.sucheFilter", "alle")) ? speicher.lies("sus.sucheFilter", "alle") : "alle";
+    this.sucheFilter = "alle";
     $("zeigen-suchfilter").addEventListener("click", (ev) => {
       const b = ev.target.closest("[data-gruppe]");
       if (b) this._setzeFilter(b.dataset.gruppe);
@@ -103,7 +103,7 @@ export class Zeigen {
     });
     this._gesten();
     this._knoepfeSetzen();
-    this.setzeRot(this.einst.rot, false);
+    this.setzeRot(this.einst.rot);
   }
 
   // ------------------------------------------------------------ Öffnen / Schließen
@@ -183,12 +183,11 @@ export class Zeigen {
     this._blickFlug = { t0: performance.now(), dauer: 900, az0: this.blick.az, el0: this.blick.el, dAz: wrap180(d.az - this.blick.az), dEl: el - this.blick.el };
   }
 
-  setzeRot(an, sichern = true) {
+  setzeRot(an) {
     this.einst.rot = an;
     this.el.classList.toggle("rot", an);
     document.body.classList.toggle("rotlicht", an);
     document.getElementById("zeigen-rot").setAttribute("aria-pressed", String(an));
-    if (sichern) this._sichern();
     if (this.opt.onRot) this.opt.onRot(an);
   }
 
@@ -200,7 +199,6 @@ export class Zeigen {
   /** nach Änderung von außen (Himmelskarte) */
   einstellungenGeaendert() {
     this._knoepfeSetzen();
-    this._sichern();
     this._chipZeit = 0;
   }
   _knoepfeSetzen() {
@@ -208,7 +206,6 @@ export class Zeigen {
     document.getElementById("zeigen-sternbilder").setAttribute("aria-pressed", String(this.einst.sternbilder));
     document.getElementById("zeigen-planeten").setAttribute("aria-pressed", String(this.einst.planeten));
   }
-  _sichern() { speicher.schreib("sus.himmelLive", this.einst); }
 
   async kamera(an) {
     const knopf = document.getElementById("zeigen-kamera");
@@ -234,7 +231,6 @@ export class Zeigen {
   // ------------------------------------------------------------ Kompass
   korrigiere(grad) {
     this.korrektur = wrap180(this.korrektur + grad);
-    speicher.schreib("sus.kompassKorrektur", this.korrektur);
     this._korrekturText();
   }
   _korrekturText() {
@@ -569,7 +565,6 @@ export class Zeigen {
   /** Suche auf eine Art beschränken: "alle" oder "0" … "3" (Gruppen wie in suche.js) */
   _setzeFilter(g) {
     this.sucheFilter = ["alle", "0", "1", "2", "3"].includes(g) ? g : "alle";
-    speicher.schreib("sus.sucheFilter", this.sucheFilter);
     this._sucheFilterZeigen();
     this._sucheZeichnen();
     this._filterInSicht();

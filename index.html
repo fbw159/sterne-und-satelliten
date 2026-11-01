@@ -191,6 +191,7 @@
 <dialog id="einstellungen" class="dialog">
   <form method="dialog" class="dialog-kopf"><h2>Einstellungen</h2><button class="rund" aria-label="Schließen"><svg><use href="#i-zu"/></svg></button></form>
   <div class="dialog-inhalt">
+    <p class="hinweis-klein">Gilt nur, solange die Seite offen ist – beim nächsten Öffnen ist wieder alles wie am Anfang.</p>
     <h3>Was auf dem Globus zu sehen ist</h3>
     <div id="kat-auswahl" class="kat-auswahl"></div>
     <h3>Dein Himmel</h3>
@@ -202,7 +203,6 @@
     <label class="schalter"><input type="checkbox" id="opt-ab10"><span>Liste erst ab 10° über dem Horizont</span></label>
     <label class="schalter"><input type="checkbox" id="opt-linien"><span>Sichtlinien zu sichtbaren Satelliten</span></label>
     <label class="schalter"><input type="checkbox" id="opt-namen"><span>Namen der sichtbaren Satelliten am Globus</span></label>
-    <label class="schalter"><input type="checkbox" id="opt-alle"><span>Alle aktiven Satelliten laden <small>(gut 16.000, ca. 1 MB)</small></span></label>
     <label class="schalter"><input type="checkbox" id="opt-rot"><span>Rotlicht <small>(für draußen im Dunkeln: schont die an die Nacht gewöhnten Augen)</small></span></label>
     <h3>Standort</h3>
     <p class="hinweis-klein" id="ort-info"></p>
@@ -234,7 +234,7 @@
     <p><b>Wann sieht man einen Satelliten?</b> Er leuchtet nicht selbst, sondern spiegelt Sonnenlicht. Sichtbar ist er, wenn er über deinem Horizont steht, noch von der Sonne angestrahlt wird und es bei dir schon dunkel ist – also vor allem kurz nach Sonnenuntergang und vor Sonnenaufgang.</p>
     <p><b>Echtzeit:</b> Die Positionen werden laufend aus den Bahndaten berechnet (Bahnmodell SGP4). Die Bahndaten selbst werden alle paar Stunden neu geladen. Planeten und Mond berechnet die Seite mit Astronomy Engine auf etwa eine Bogenminute genau.</p>
     <p><b>Helligkeit</b> wird in Magnituden (mag) angegeben: je kleiner, desto heller. Die ISS erreicht etwa −3 bis −4, die hellsten Sterne liegen um 0, mit bloßem Auge sieht man bis etwa 4 (Stadt) bis 6 (dunkles Land). Die Werte für Satelliten sind Schätzungen.</p>
-    <p><b>Dein Standort</b> bleibt auf deinem Gerät. Er wird nirgendwohin geschickt.</p>
+    <p><b>Nichts wird gespeichert:</b> Standort, Einstellungen und deine Auswahl gelten nur, solange die Seite offen ist – beim nächsten Öffnen beginnt alles wieder im Ursprungszustand. Dein Standort wird nirgendwohin geschickt. Nur die öffentlichen Bahndaten der Satelliten legt der Browser zwischen, damit sie nicht bei jedem Öffnen neu geladen werden müssen.</p>
     <p class="quellen">Bahndaten: CelesTrak (T. S. Kelso). Satellitenkatalog: CelesTrak SATCAT. Helligkeiten: Mike McCants (qs.mag). Erdbilder: NASA Blue Marble und Black Marble. Küsten, Grenzen, Länder- und Meeresnamen: Natural Earth. Sterne: Yale Bright Star Catalog. Sternbilder: d3-celestial (Olaf Frohn) nach den IAU-Sternkarten. Planeten: Astronomy Engine (Don Cross). Missweisung: World Magnetic Model 2025 (NOAA/BGS). Software: three.js, satellite.js.</p>
   </div>
 </dialog>
