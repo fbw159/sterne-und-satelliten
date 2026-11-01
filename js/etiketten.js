@@ -1,11 +1,13 @@
 // Beschriftungen ohne Überlappung: rechts, links, unten oder oben vom Objekt – sonst weglassen
 export class Etiketten {
-  constructor(g, breite, hoehe, sperren = []) {
+  /** opt.kontur: dunkler Rand um die Schrift (lesbar auf hellem Himmel oder Kamerabild) */
+  constructor(g, breite, hoehe, sperren = [], opt = {}) {
     this.g = g;
     this.W = breite;
     this.H = hoehe;
     this.boxen = sperren.slice();
     this.liste = [];
+    this.kontur = opt.kontur || null;
   }
 
   /** Fläche freihalten (z. B. Planetenscheibe) */
@@ -46,6 +48,10 @@ export class Etiketten {
       }
       if (!gesetzt) continue;
       this.boxen.push(gesetzt);
+      if (this.kontur) {
+        g.lineWidth = 3; g.lineJoin = "round"; g.strokeStyle = this.kontur;
+        g.strokeText(e.text, gesetzt.x, gesetzt.y + h / 2);
+      }
       g.fillStyle = e.farbe;
       g.fillText(e.text, gesetzt.x, gesetzt.y + h / 2);
     }

@@ -6,8 +6,9 @@ import * as A from "./astro.js";
 import { mondZeichnen } from "./himmel.js";
 import { PLANETEN, astronomieLaden, azElZuEnu, enuZuAzEl } from "./himmelsdaten.js";
 import { infoHtml } from "./wasistdas.js";
-import { speicher, zahl, esc } from "./ui.js";
+import { speicher, zahl, esc, uhr, tag } from "./ui.js";
 import { Etiketten } from "./etiketten.js";
+import { suchEintraege, suchen, nieZuSehen } from "./suche.js";
 
 const wrap180 = (x) => ((((x + 180) % 360) + 360) % 360) - 180;
 const SICHTWINKEL = 62;  // Bildwinkel entlang der langen Bildschirmseite in Grad (ohne Kamera)
@@ -50,7 +51,7 @@ export class Zeigen {
     this.deklination = 0;
     this.korrektur = speicher.lies("sus.kompassKorrektur", 0) || 0;
     const e = speicher.lies("sus.himmelLive", {});
-    this.einst = { sternbilder: e.sternbilder !== false, planeten: e.planeten !== false, rot: !!e.rot };
+    this.einst = { satelliten: e.satelliten !== false, sternbilder: e.sternbilder !== false, planeten: e.planeten !== false, rot: !!e.rot };
     this.offen = false;
     this.imZiel = false;
     this.zuletztVibriert = 0;
@@ -65,6 +66,7 @@ export class Zeigen {
     $("zeigen-zu").onclick = () => this.schliessen();
     $("zeigen-kamera").onclick = () => this.kamera(!this.stream);
     $("zeigen-rot").onclick = () => this.setzeRot(!this.einst.rot);
+    $("zeigen-satelliten").onclick = () => this._schalte("satelliten");
     $("zeigen-sternbilder").onclick = () => this._schalte("sternbilder");
     $("zeigen-planeten").onclick = () => this._schalte("planeten");
     $("zeigen-kompass").onclick = () => this._kompassFeld(!this.kompassOffen);
@@ -73,6 +75,19 @@ export class Zeigen {
     $("zeigen-rechts").onclick = () => this.korrigiere(2);
     $("zeigen-ziel-weg").onclick = () => this.setzeZiel(null);
     $("zeigen-info").addEventListener("click", (ev) => this._infoKlick(ev));
+    // Suche
+    $("zeigen-suchen").onclick = () => (this.sucheOffen ? this.sucheSchliessen() : this.sucheOeffnen());
+    $("zeigen-suche-zu").onclick = () => this.sucheSchliessen();
+    $("zeigen-suchfeld").addEventListener("input", () => this._sucheZeichnen());
+    $("zeigen-suchfeld").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") { ev.preventDefault(); const t = this._sucheTreffer && this._sucheTreffer[0]; if (t) this._sucheWahl(t, true); }
+      else if (ev.key === "Escape") this.sucheSchliessen();
+    });
+    $("zeigen-suchliste").addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-such]");
+      const t = b && this._sucheTreffer ? this._sucheTreffer[Number(b.dataset.such)] : null;
+      if (t) this._sucheWahl(t, b.dataset.art === "hin");
+    });
     $("zeigen-chips").addEventListener("click", (ev) => {
       const b = ev.target.closest("[data-chip]");
       if (b && this._chipObjekte) { const o = this._chipObjekte[Number(b.dataset.chip)]; if (o) { this.setzeZiel(o); this.gewaehlt = null; document.getElementById("zeigen-info").hidden = true; } }
@@ -86,10 +101,11 @@ export class Zeigen {
   /** Muss direkt im Klick aufgerufen werden (iOS fragt nur dann nach Erlaubnis) */
   erlaubnis() {
     const D = window.DeviceOrientationEvent;
-    if (D && typeof D.requestPermission === "function") {
-      return D.requestPermission().then((r) => r === "granted").catch(() => false);
-    }
-    return Promise.resolve(!!D);
+    if (!D) return Promise.resolve(false);
+    // iOS fragt nach („granted“/„denied“); neuere Chrome-Versionen antworten auch „prompt“ –
+    // dann einfach versuchen: kommen keine Daten, merkt das die Seite selbst
+    if (typeof D.requestPermission === "function") return D.requestPermission().then((r) => r !== "denied").catch(() => true);
+    return Promise.resolve(true);
   }
 
   /** ziel: optional { art: "sat", i } | { art: "planet", id } | { art: "mond" } | { art: "stern", k } … */
@@ -104,6 +120,7 @@ export class Zeigen {
     this.imZiel = false;
     this.gewaehlt = null;
     this._kompassFeld(false);
+    this.sucheSchliessen();
     document.getElementById("zeigen-info").hidden = true;
     const b = this.opt.beobachter();
     this.deklination = b ? this.opt.missweisung(b.lat, b.lon) : 0;
@@ -144,7 +161,17 @@ export class Zeigen {
       const i = o.i;
       this.opt.satBahn(i).then((m) => { if (this.ziel && this.ziel.art === "sat" && this.ziel.i === i && m && m.daten) this.zielBahn = m; });
     }
+    // ohne Lagesensoren (PC): den Blick gleich selbst hindrehen
+    if (o && !this.hatDaten) this._dreheZu(o);
     this._titel();
+  }
+
+  /** Blick (ohne Sensoren) sanft auf ein Objekt drehen */
+  _dreheZu(o) {
+    const d = this._objekt(o);
+    if (!d) return;
+    const el = Math.max(-20, Math.min(85, d.el));
+    this._blickFlug = { t0: performance.now(), dauer: 900, az0: this.blick.az, el0: this.blick.el, dAz: wrap180(d.az - this.blick.az), dEl: el - this.blick.el };
   }
 
   setzeRot(an, sichern = true) {
@@ -168,6 +195,7 @@ export class Zeigen {
     this._chipZeit = 0;
   }
   _knoepfeSetzen() {
+    document.getElementById("zeigen-satelliten").setAttribute("aria-pressed", String(this.einst.satelliten));
     document.getElementById("zeigen-sternbilder").setAttribute("aria-pressed", String(this.einst.sternbilder));
     document.getElementById("zeigen-planeten").setAttribute("aria-pressed", String(this.einst.planeten));
   }
@@ -204,6 +232,7 @@ export class Zeigen {
     document.getElementById("zeigen-korrektur").textContent = `${this.korrektur > 0 ? "+" : ""}${Math.round(this.korrektur)}°`;
   }
   _kompassFeld(an) {
+    if (an) this.sucheSchliessen();
     this.kompassOffen = an;
     document.getElementById("zeigen-kompass-feld").hidden = !an;
     document.getElementById("zeigen-kompass").setAttribute("aria-pressed", String(an));
@@ -267,6 +296,12 @@ export class Zeigen {
     this.qRoh.setFromEuler(eu);
     if (!this.hatDaten) this.q.copy(this.qRoh);
     else this.q.slerp(this.qRoh, 0.22);
+    if (!this.hatDaten && this.ohneSensoren) {
+      // Sensoren kamen spät: Kamera- und Kompass-Knopf doch noch zeigen
+      this.ohneSensoren = false;
+      document.getElementById("zeigen-kamera").hidden = false;
+      document.getElementById("zeigen-kompass").hidden = false;
+    }
     this.hatDaten = true;
   }
 
@@ -284,6 +319,7 @@ export class Zeigen {
     let start = null, pinch = null;
     const abstand = () => { const [a, b] = [...zeiger.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
     c.addEventListener("pointerdown", (e) => {
+      this._blickFlug = null;
       zeiger.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (zeiger.size === 1) start = { x: e.clientX, y: e.clientY, t: performance.now(), az: this.blick.az, el: this.blick.el, bewegt: false };
       else if (zeiger.size === 2) { pinch = { d: abstand(), zoom: this.zoom }; start = null; }
@@ -387,6 +423,7 @@ export class Zeigen {
 
   /** Antippen: was ist an dieser Stelle? */
   _tippen(x, y, radius) {
+    if (this.sucheOffen) { this.sucheSchliessen(); return; }
     let best = null, bd = radius * radius;
     for (const t of this.treffer) {
       const d = ((t.x - x) ** 2 + (t.y - y) ** 2) / t.gewicht;
@@ -406,6 +443,7 @@ export class Zeigen {
   zeigeInfo(o) {
     this.gewaehlt = o;
     this._kompassFeld(false);
+    this.sucheSchliessen();
     this._infoNeu();
     document.getElementById("zeigen-info").hidden = false;
   }
@@ -481,6 +519,88 @@ export class Zeigen {
       : `<span class="chips-titel">${sonneEl > -3 ? "Bei Tageslicht ist am Himmel wenig zu sehen." : "Gerade kein Planet und kein heller Satellit über dem Horizont."}</span>`;
   }
 
+  // ------------------------------------------------------------ Suche
+  get sucheOffen() { return !document.getElementById("zeigen-suche").hidden; }
+
+  sucheOeffnen() {
+    this._kompassFeld(false);
+    this.gewaehlt = null;
+    document.getElementById("zeigen-info").hidden = true;
+    document.getElementById("zeigen-suche").hidden = false;
+    const f = document.getElementById("zeigen-suchfeld");
+    f.value = "";
+    this._sucheListe = null; // neu aufbauen: Daten und Satelliten können sich geändert haben
+    this._sucheZeichnen();
+    document.getElementById("zeigen-suchliste").scrollTop = 0;
+    // am PC gleich lostippen; am Handy erst die Liste zeigen (die Tastatur ist nachts grell)
+    if (!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches)) f.focus();
+  }
+
+  sucheSchliessen() {
+    const el = document.getElementById("zeigen-suche");
+    if (!el || el.hidden) return;
+    el.hidden = true;
+    document.getElementById("zeigen-suchfeld").blur();
+  }
+
+  _sucheWahl(t, hin) {
+    this.sucheSchliessen();
+    if (hin) { this.setzeZiel(t.o); this.gewaehlt = null; document.getElementById("zeigen-info").hidden = true; }
+    else this.zeigeInfo(t.o);
+  }
+
+  /** Lage eines Suchtreffers in Worten */
+  _sucheWo(e) {
+    const d = this._objekt(e.o);
+    if (!d) return esc(e.art);
+    if (d.el > 0) return `${esc(e.art)} · <b>im ${A.richtungLang(d.az)}, ${Math.round(d.el)}° hoch</b>`;
+    const b = this.opt.beobachter();
+    if (b && (e.o.art === "planet" || e.o.art === "mond")) {
+      const au = this.HD.aufUnter(e.o.art === "mond" ? "Moon" : e.o.id, b.lat, b.lon, Date.now());
+      if (au && au.auf) return `${esc(e.art)} · geht ${tag(au.auf)} um ${uhr(au.auf)} Uhr auf`;
+    }
+    if (b && e.dec != null && nieZuSehen(e.dec, b.lat)) return `${esc(e.art)} · von hier aus nie zu sehen`;
+    return `${esc(e.art)} · gerade unter dem Horizont`;
+  }
+
+  _sucheZeichnen() {
+    if (!this._sucheListe) {
+      const iss = this.opt.issIdx ? this.opt.issIdx() : -1;
+      const sichtbar = (this.opt.satelliten ? this.opt.satelliten() : []).filter((x) => x.sichtbar && !x.iss);
+      this._sucheListe = suchEintraege(this.HD, iss, sichtbar);
+      if (!this.HD.bereit) this.HD.laden().then(() => { this._sucheListe = null; if (this.sucheOffen) this._sucheZeichnen(); }).catch(() => {});
+    }
+    const q = document.getElementById("zeigen-suchfeld").value;
+    const gefunden = suchen(this._sucheListe, q);
+    let gruppen;
+    if (gefunden) gruppen = [[null, gefunden]];
+    else {
+      // ohne Suchbegriff: alles zum Stöbern – was gerade über dem Horizont steht, zuerst
+      const L = this._sucheListe;
+      const oben = new Map(L.map((e) => { const d = this._objekt(e.o); return [e, d && d.el > 0 ? 1 : 0]; }));
+      const mag = (e) => { if (e.o.art === "mond") return -12; const p = this.HD.planeten.find((x) => x.id === e.o.id); return p ? p.mag : (e.mag ?? 9); };
+      const nachOben = (a, b) => oben.get(b) - oben.get(a);
+      gruppen = [
+        ["Mond und Planeten", L.filter((e) => e.gruppe === 0).sort((a, b) => nachOben(a, b) || mag(a) - mag(b))],
+        ["Satelliten", L.filter((e) => e.gruppe === 1)],
+        ["Sternbilder", L.filter((e) => e.gruppe === 2).sort((a, b) => nachOben(a, b) || (a.rang ?? 9) - (b.rang ?? 9) || a.name.localeCompare(b.name, "de"))],
+        ["Helle Sterne", L.filter((e) => e.gruppe === 3).sort((a, b) => nachOben(a, b) || a.mag - b.mag)],
+      ];
+    }
+    this._sucheTreffer = [];
+    let html = "";
+    for (const [titel, liste] of gruppen) {
+      if (!liste.length) continue;
+      if (titel) html += `<li class="such-gruppe">${esc(titel)}</li>`;
+      for (const e of liste) {
+        const k = this._sucheTreffer.push(e) - 1;
+        html += `<li class="treffer"><button class="such-zeile" data-such="${k}"><span class="such-name">${esc(e.name)}${e.zusatz ? `<small>${esc(e.zusatz)}</small>` : ""}</span><span class="such-art">${this._sucheWo(e)}</span></button><button class="knopf knopf-hin" data-such="${k}" data-art="hin"><svg><use href="#i-pfeil"/></svg>Hinführen</button></li>`;
+      }
+    }
+    if (!this._sucheTreffer.length) html = `<li class="leer">${gefunden ? "Nichts gefunden. Versuch es mit dem deutschen oder lateinischen Namen." : "Sterndaten werden geladen …"}</li>`;
+    document.getElementById("zeigen-suchliste").innerHTML = html;
+  }
+
   // ------------------------------------------------------------ Zeichnen
   _sichtwinkel() {
     return Math.max(20, Math.min(110, (this.stream ? KAMERAWINKEL : SICHTWINKEL) / this.zoom));
@@ -504,6 +624,14 @@ export class Zeigen {
     g.setTransform(pr, 0, 0, pr, 0, 0);
     const P = this.einst.rot ? FARBEN.rot : FARBEN.normal;
     const jetzt = Date.now();
+    if (this._blickFlug) {
+      const f = this._blickFlug;
+      const k = Math.min(1, (performance.now() - f.t0) / f.dauer);
+      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      this.blick.az = (f.az0 + f.dAz * e + 360) % 360;
+      this.blick.el = f.el0 + f.dEl * e;
+      if (k >= 1) this._blickFlug = null;
+    }
     const ort = this.opt.beobachter();
     const HD = this.HD;
     if (ort && HD.bereit) HD.aktualisieren(ort.lat, ort.lon, jetzt);
@@ -533,7 +661,10 @@ export class Zeigen {
     // Beschriftungen: nicht unter die Leisten oben und unten, nicht übereinander
     const obenH = document.querySelector(".zeigen-oben").offsetHeight || 90;
     const untenH = document.querySelector(".zeigen-unten").offsetHeight || 140;
-    const et = new Etiketten(g, w, h, [{ x: 0, y: 0, w, h: obenH - 18 }, { x: 0, y: h - untenH + 18, w, h: untenH }]);
+    const seite = document.querySelector(".zeigen-seite");
+    const seiteH = seite ? seite.offsetHeight : 160;
+    const et = new Etiketten(g, w, h, [{ x: 0, y: 0, w, h: obenH - 18 }, { x: 0, y: h - untenH + 18, w, h: untenH }, { x: w - 66, y: obenH - 18, w: 66, h: seiteH + 30 }],
+      { kontur: this.einst.rot ? "rgba(0,0,0,0.85)" : "rgba(0,0,0,0.6)" });
 
     // Himmel
     const sonne = this.opt.sonne();
@@ -714,8 +845,9 @@ export class Zeigen {
       g.fillText(t, p.x, p.y + 14);
     }
 
-    // Satelliten: sichtbare groß und gelb mit Namen, angestrahlte klein
-    const sats = this.opt.satelliten ? this.opt.satelliten() : [];
+    // Satelliten: sichtbare groß und gelb mit Namen, angestrahlte klein (ausgeschaltet: nur das Ziel)
+    const alleSats = this.opt.satelliten ? this.opt.satelliten() : [];
+    const sats = this.einst.satelliten ? alleSats : alleSats.filter((s) => this.ziel && this.ziel.art === "sat" && this.ziel.i === s.i);
     for (const s of sats) {
       const p = proj(s.az, s.el);
       if (!imBild(p, 10)) continue;
@@ -840,7 +972,7 @@ export class Zeigen {
     if (!r) { anw.textContent = "Keine Position verfügbar."; return; }
     const p = proj(r.az, r.el);
     const art = z.art === "sat" ? (r.el < 0 ? "unter dem Horizont" : r.sichtbar ? "jetzt sichtbar" : r.licht >= 0.5 ? "angestrahlt" : "im Erdschatten") : r.el < 0 ? "unter dem Horizont" : "über dem Horizont";
-    const t = `${A.richtung(r.az)} (${Math.round(r.az)}°) · ${Math.round(r.el)}° hoch · ${art}`;
+    const t = `${A.richtung(r.az)} (${Math.round(r.az)}°) · ${zahl(Math.round(r.el))}° hoch · ${art}`;
     if (zeile.textContent !== t) zeile.textContent = t;
     const imBild = p && p.x > 30 && p.x < w - 30 && p.y > 90 && p.y < h - 170;
     const winkel = p ? Math.acos(Math.max(-1, Math.min(1, p.z))) * A.DEG : 180;

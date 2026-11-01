@@ -1,13 +1,13 @@
 // Satelliten über mir – Hauptprogramm
 import { Globus, KAT } from "./globus.js";
 import * as A from "./astro.js";
-import { $, $$, esc, zahl, km, grad, mag, uhr, tag, datum, relativ, alterText, melde, speicher, helligkeitWort } from "./ui.js";
+import { $, $$, esc, zahl, km, mag, uhr, tag, datum, melde, speicher, helligkeitWort } from "./ui.js";
 import { steckbriefHtml, steckbriefAktualisieren, wikiLaden, passHtml, zustandText } from "./steckbrief.js";
-import { bekannt, anzeigeName } from "./texte.js";
+import { bekannt, anzeigeName, betreiber, artWort } from "./texte.js";
 import { Himmel } from "./himmel.js";
 import { Zeigen } from "./zeigen.js";
 import { missweisung } from "./magvar.js";
-import { HimmelDaten, astronomieLaden, PLANETEN } from "./himmelsdaten.js";
+import { HimmelDaten, astronomieLaden } from "./himmelsdaten.js";
 import { infoHtml } from "./wasistdas.js";
 import { orteLaden, ortName } from "./orte.js";
 
@@ -18,10 +18,12 @@ const PC = window.matchMedia("(min-width: 900px)");
 // ---------------------------------------------------------------- Einstellungen
 const STANDARD = {
   filter: Object.fromEntries(Object.keys(KAT).map((k) => [k, true])),
-  himmel: 4.5, ab10: false, linien: true, namen: true, alle: true, liste: "hell",
+  himmel: 4.5, ab10: false, linien: true, namen: true, alle: true, liste: "hell", uebersicht: false,
 };
 const E = Object.assign({}, STANDARD, speicher.lies("sus.einstellungen", {}));
 E.filter = Object.assign({}, STANDARD.filter, E.filter || {});
+// früherer Fehler: der Planeten-Knopf der Himmelskarte hat die Listenauswahl gelöscht
+if (!["sichtbar", "hell", "alle"].includes(E.liste)) E.liste = "hell";
 const sichern = () => speicher.schreib("sus.einstellungen", E);
 
 // ---------------------------------------------------------------- Zustand
@@ -91,7 +93,7 @@ try {
   setTimeout(() => { bilderDa = true; startFertig(); melde("Dein Browser kann den 3D-Globus nicht anzeigen (WebGL fehlt). Listen, Himmelskarte und Zeigen funktionieren trotzdem.", 12); blattHoehe("gross"); }, 0);
 }
 function globusOptionen() { return {
-  onWahl: (i) => waehle(i),
+  onWahl: (i) => { if (i < 0 && boxArt === "objekt") objektZu(); waehle(i); },
   onBereit: () => { bilderDa = true; startFertig(); },
   onFehler: (t) => melde(t, 8),
   onOrtTippen: (p) => {
@@ -100,29 +102,44 @@ function globusOptionen() { return {
     melde("Standort übernommen.");
   },
   onBedienung: () => {},
+  onBild: () => globusKnoepfe(),
 }; }
 globus.zeigeLinien = E.linien;
 globus.zeigeNamen = E.namen;
 globus.setzeFilter(E.filter);
+globus.setzeUebersicht(E.uebersicht);
 let bilderDa = false, datenDa = false, gestartet = false, angeflogen = false;
 
 // ---------------------------------------------------------------- Blatt (unten) bzw. Leiste (rechts)
 const blatt = $("#blatt");
+const box = $("#infobox");
+let boxArt = null; // "sat" | "objekt" | null
+document.body.dataset.blatt = blatt.dataset.hoehe;
 function blattHoehe(h) {
   if (PC.matches) return;
   blatt.dataset.hoehe = h;
   document.body.dataset.blatt = h;
-  setTimeout(versatzAnpassen, 340);
+  boxLage();
+  setTimeout(() => { versatzAnpassen(); boxLage(); }, 340);
   if (h !== "klein" && reiter === "oben" && !$("#seite-oben").hidden) listeZeichnen(true);
 }
+/** Globus in die Mitte der freien Fläche schieben (zwischen Infobox, Blatt bzw. Leiste) */
 function versatzAnpassen() {
-  if (PC.matches) { globus.setzeVersatz(blatt.offsetWidth, 0); return; }
-  const sicht = Math.max(0, window.innerHeight - blatt.getBoundingClientRect().top);
-  // Globus nur ein Stück nach oben schieben, damit er nicht zu klein wird
-  globus.setzeVersatz(0, Math.min(sicht, window.innerHeight * 0.5));
+  const W = window.innerWidth, H = window.innerHeight;
+  const offen = !box.hidden;
+  if (PC.matches) {
+    const links = offen ? box.getBoundingClientRect().right + 8 : 0;
+    globus.setzeVersatz(blatt.offsetWidth - links, 0);
+    return;
+  }
+  const oben = offen && box.dataset.lage === "oben" ? box.getBoundingClientRect().bottom + 6 : 0;
+  const unten = Math.max(oben + 100, Math.min(blatt.getBoundingClientRect().top, blattObenZiel()));
+  // Globus nur ein Stück verschieben, damit er nicht zu klein wird
+  globus.setzeVersatz(0, Math.max(-H * 0.5, Math.min(H * 0.5, H - oben - unten)));
+  void W;
 }
-PC.addEventListener("change", () => { blatt.style.transform = ""; versatzAnpassen(); });
-window.addEventListener("resize", () => setTimeout(versatzAnpassen, 50));
+PC.addEventListener("change", () => { blatt.style.transform = ""; boxLage(); versatzAnpassen(); });
+window.addEventListener("resize", () => setTimeout(() => { boxLage(); versatzAnpassen(); }, 50));
 (function blattZiehen() {
   const kopf = $("#blatt-kopf");
   let z = null;
@@ -167,23 +184,24 @@ function zeigeReiter(r, auch = true) {
   reiter = r;
   for (const b of $$(".reiter button")) b.setAttribute("aria-selected", String(b.dataset.reiter === r));
   for (const s of $$(".seite")) s.hidden = s.id !== "seite-" + r;
-  if (auch && blatt.dataset.hoehe === "klein") blattHoehe("halb");
+  if (r !== "himmel") { if (boxArt === "objekt") objektZu(); karteKompassAus(); }
+  // die Himmelskarte braucht Platz: ganz hochziehen
+  if (auch && r === "himmel" && blatt.dataset.hoehe !== "gross") blattHoehe("gross");
+  else if (auch && blatt.dataset.hoehe === "klein") blattHoehe("halb");
   $("#blatt-inhalt").scrollTop = 0;
+  boxLage();
   if (r === "oben") listeZeichnen(true);
   if (r === "iss") issZeichnen();
   if (r === "nacht") nachtZeichnen();
   if (r === "himmel") requestAnimationFrame(() => himmelZeichnen());
 }
-for (const b of $$(".reiter button")) b.addEventListener("click", () => {
-  if (auswahl >= 0 && b.dataset.reiter !== "himmel") waehle(-1, false);
-  zeigeReiter(b.dataset.reiter);
-});
-for (const b of $$(".filter button")) b.addEventListener("click", () => {
+for (const b of $$(".reiter button")) b.addEventListener("click", () => zeigeReiter(b.dataset.reiter));
+for (const b of $$("button[data-filter]")) b.addEventListener("click", () => {
   E.liste = b.dataset.filter; sichern(); zeigeBis = 150;
-  for (const x of $$(".filter button")) x.setAttribute("aria-pressed", String(x === b));
+  for (const x of $$("button[data-filter]")) x.setAttribute("aria-pressed", String(x === b));
   listeZeichnen(true);
 });
-for (const x of $$(".filter button")) x.setAttribute("aria-pressed", String(x.dataset.filter === E.liste));
+for (const x of $$("button[data-filter]")) x.setAttribute("aria-pressed", String(x.dataset.filter === E.liste));
 
 // ---------------------------------------------------------------- Standort
 function ortSetzen(lat, lon, quelle, genau = null) {
@@ -244,6 +262,7 @@ function katalogSetzen() {
   issIdx = idx.has(ISS) ? idx.get(ISS) : -1;
   globus.setzeKatalog(sats.map((s) => s[14]), sats.map((s) => anzeigeName(s[1])), issIdx);
   if (auswahl < 0) globus.setzeBahnZiel(issIdx);
+  legendeZeichnen();
 }
 
 async function datenLaden() {
@@ -520,6 +539,7 @@ function nachTakt() {
     if (!$("#seite-iss").hidden) issZeichnen();
   }
   if (!$("#seite-himmel").hidden) himmelZeichnen();
+  if (boxArt === "objekt" && jetzt - objektZeit > 2000) objektInfo();
   // Bahnlinie regelmäßig neu
   const bz = auswahl >= 0 ? auswahl : issIdx;
   if (bz >= 0 && (jetzt - zuletztBahn > 60000 || globus.bahnIdx !== bz || !globus.ring.visible)) {
@@ -666,9 +686,14 @@ $("#nacht-liste").addEventListener("click", (e) => {
 });
 
 // ---------------------------------------------------------------- Liste „Über dir“
+// Während ein Finger auf der Liste liegt, nicht neu zeichnen – sonst geht das Antippen verloren
+let listeBeruehrt = 0;
+$("#oben-liste").addEventListener("pointerdown", () => { listeBeruehrt = Date.now(); });
+for (const t of ["pointerup", "pointercancel"]) $("#oben-liste").addEventListener(t, () => { setTimeout(() => { listeBeruehrt = 0; }, 350); });
 function listeZeichnen(neu = false) {
   const el = $("#oben-liste");
   if (!tick) { el.innerHTML = '<li class="leer">wird berechnet …</li>'; return; }
+  if (!neu && listeBeruehrt && Date.now() - listeBeruehrt < 3000) return;
   const o = tick.oben;
   const zeilen = [];
   for (let k = 0; k < o.length; k += 7) {
@@ -708,12 +733,12 @@ $("#oben-liste").addEventListener("click", (e) => {
 
 // ---------------------------------------------------------------- Himmel
 const himmelDaten = new HimmelDaten();
-let himmelObjekt = null; // Objekt der Info-Karte unter der Himmelskarte
+let himmelObjekt = null; // Stern, Planet, Mond, Sonne oder Sternbild in der Infobox
 const himmel = new Himmel($("#himmel-karte"), {
   himmel: himmelDaten,
   einst: () => zeigen.einst,
   onWahl: (i) => waehle(i),
-  onObjekt: (o) => { himmelObjekt = o; himmelInfo(); himmelZeichnen(); },
+  onObjekt: (o) => objektZeigen(o),
 });
 function himmelZeichnen() {
   if (!tick) return;
@@ -724,12 +749,14 @@ function himmelZeichnen() {
     himmelDaten.aktualisieren(ort.lat, ort.lon, jetzt);
     himmelDaten.planetenAktualisieren(ort.lat, ort.lon, jetzt);
   }
+  // Satelliten: Raumstationen, helle und gerade sichtbare (ausgeschaltet: nur der gewählte)
+  const mitSats = zeigen.einst.satelliten !== false;
   const o = tick.oben, liste = [];
   for (let k = 0; k < o.length; k += 7) {
     const i = o[k], st = tick.st[i], s = sats[i];
     if (st & 64 || E.filter[s[14]] === false) continue;
-    if (E.liste === "hell" && !((s[15] & 3) || (st & 8) || i === issIdx || (s[16] != null && s[16] <= 4)) && i !== auswahl) continue;
-    if (E.liste === "sichtbar" && !(st & 8) && i !== issIdx && i !== auswahl) continue;
+    const hell = (s[15] & 3) || (st & 8) || i === issIdx || (s[16] != null && s[16] <= 4);
+    if (i !== auswahl && !(mitSats && hell)) continue;
     liste.push({ i, az: o[k + 1], el: o[k + 2], mag: o[k + 4], sichtbar: !!(st & 8), licht: !!(st & 4), iss: i === issIdx, name: anzeigeName(s[1]) });
   }
   let aus = null;
@@ -738,22 +765,40 @@ function himmelZeichnen() {
     if (r) aus = { az: r.az, el: r.el, name: anzeigeName(sats[auswahl][1]) };
   }
   const obj = himmelObjekt ? zeigen.objektRichtung(himmelObjekt) : null;
+  himmel.drehung = karteKompass.an ? karteKompass.kurs : 0;
   himmel.zeichne({ sats: liste, sonne: tick.sonne, mond: tick.mond, bahn: auswahlBahnHimmel && auswahlBahnHimmel.i === auswahl ? auswahlBahnHimmel.daten : null, auswahl: aus, objekt: obj ? { az: obj.az, el: obj.el } : null });
   if (jetzt - planetenZeit > 20000) planetenListe();
 }
 
-function himmelInfo() {
-  const el = $("#himmel-info");
-  if (!himmelObjekt) { el.hidden = true; return; }
-  const d = zeigen.infoDaten(himmelObjekt);
-  if (!d) { el.hidden = true; return; }
-  el.innerHTML = infoHtml(d).replace("Hinführen", "Mit dem Handy zeigen");
-  el.hidden = false;
+/** Stern, Planet, Mond, Sonne oder Sternbild in der Infobox zeigen */
+function objektZeigen(o) {
+  if (auswahl >= 0) waehle(-1);
+  himmelObjekt = o;
+  box.classList.remove("eingeklappt");
+  objektInfo();
+  if (!himmelObjekt) return;
+  boxOeffnen("objekt");
+  himmelZeichnen();
 }
-$("#himmel-info").addEventListener("click", (e) => {
+let objektZeit = 0;
+function objektInfo() {
+  const el = $("#objektinfo");
+  if (!himmelObjekt) return;
+  objektZeit = Date.now();
+  const d = zeigen.infoDaten(himmelObjekt);
+  if (!d) { objektZu(); return; }
+  const html = infoHtml(d, { hinText: "Mit dem Handy zeigen", klappen: true });
+  if (el._html !== html) { el.innerHTML = html; el._html = html; }
+}
+function objektZu() {
+  himmelObjekt = null;
+  if (boxArt === "objekt") boxZu();
+  if (!$("#seite-himmel").hidden) himmelZeichnen();
+}
+$("#objektinfo").addEventListener("click", (e) => {
   const b = e.target.closest("[data-info]");
   if (!b) return;
-  if (b.dataset.info === "zu") { himmelObjekt = null; himmelInfo(); himmelZeichnen(); }
+  if (b.dataset.info === "zu") objektZu();
   else if (b.dataset.info === "hin" && himmelObjekt) himmelLiveOeffnen(himmelObjekt);
 });
 
@@ -772,7 +817,7 @@ function planetenListe() {
     let wann = "";
     if (el2 >= 0) wann = au && au.unter ? `geht ${tag(au.unter)} um ${uhr(au.unter)} Uhr unter` : "geht heute nicht unter";
     else wann = au && au.auf ? `geht ${tag(au.auf)} um ${uhr(au.auf)} Uhr auf` : "geht heute nicht auf";
-    const wo = el2 >= 0 ? `jetzt ${Math.round(el2)}° hoch im ${A.himmelsrichtung(az)}` : "unter dem Horizont";
+    const wo = el2 >= 0 ? `jetzt ${Math.round(el2)}° hoch im ${A.richtungLang(az)}` : "unter dem Horizont";
     return `<li data-objekt="${id}" class="${el2 >= 0 ? "oben-ja" : "oben-nein"}"><i class="punkt" style="background:${farbe}"></i><span class="name">${esc(name)}</span><span class="wert">${zahl(mag, 1)} mag</span><span class="unter">${esc(wo)} · ${esc(wann)}${extra ? " · " + esc(extra) : ""}</span></li>`;
   };
   if (m) zeilen.push(eintrag("Moon", "Mond", "#e9eefa", m.az, m.el, m.mag, `${zahl(m.anteil * 100)} % beleuchtet`));
@@ -786,9 +831,7 @@ function planetenListe() {
 $("#planeten-liste").addEventListener("click", (e) => {
   const li = e.target.closest("[data-objekt]");
   if (!li) return;
-  himmelObjekt = li.dataset.objekt === "Moon" ? { art: "mond" } : { art: "planet", id: li.dataset.objekt };
-  himmelInfo(); himmelZeichnen();
-  $("#himmel-info").scrollIntoView({ block: "nearest", behavior: "smooth" });
+  objektZeigen(li.dataset.objekt === "Moon" ? { art: "mond" } : { art: "planet", id: li.dataset.objekt });
 });
 for (const b of $$("[data-himmel]")) b.addEventListener("click", () => {
   const k = b.dataset.himmel;
@@ -800,8 +843,117 @@ for (const b of $$("[data-himmel]")) b.addEventListener("click", () => {
 function himmelSchalter() { for (const b of $$("[data-himmel]")) b.setAttribute("aria-pressed", String(!!zeigen.einst[b.dataset.himmel])); }
 $("#himmel-live").addEventListener("click", () => himmelLiveOeffnen(null));
 
+/* Himmelskarte mit dem Kompass drehen: Liegt das Handy flach, zeigt die Karte die Richtungen so,
+   wie sie draußen wirklich liegen (Oberkante des Handys = Blickrichtung). */
+const karteKompass = { an: false, kurs: 0, roh: null, bild: 0, zeit: 0, dekl: 0 };
+function karteKompassEreignis(e) {
+  let k = null;
+  if (typeof e.webkitCompassHeading === "number" && !Number.isNaN(e.webkitCompassHeading)) k = e.webkitCompassHeading;
+  else if ((e.type === "deviceorientationabsolute" || e.absolute === true) && e.alpha != null) k = 360 - e.alpha;
+  if (k == null) return;
+  k = k + karteKompass.dekl + (zeigen.korrektur || 0);
+  karteKompass.zeit = Date.now();
+  if (karteKompass.roh == null) karteKompass.roh = k;
+  else karteKompass.roh += 0.25 * (((k - karteKompass.roh + 540) % 360) - 180);
+  const neu = ((karteKompass.roh % 360) + 360) % 360;
+  if (Math.abs(((neu - karteKompass.kurs + 540) % 360) - 180) < 0.4) return;
+  karteKompass.kurs = neu;
+  if (!karteKompass.bild) karteKompass.bild = requestAnimationFrame(() => {
+    karteKompass.bild = 0;
+    if (!$("#seite-himmel").hidden) { himmel.drehung = karteKompass.kurs; himmel.zeichne(); }
+  });
+}
+function karteKompassAus() {
+  if (!karteKompass.an) return;
+  karteKompass.an = false;
+  window.removeEventListener("deviceorientationabsolute", karteKompassEreignis, true);
+  window.removeEventListener("deviceorientation", karteKompassEreignis, true);
+  $("#himmel-kompass").setAttribute("aria-pressed", "false");
+  himmel.drehung = 0;
+  himmelZeichnen();
+}
+$("#himmel-kompass").addEventListener("click", () => {
+  if (karteKompass.an) { karteKompassAus(); return; }
+  zeigen.erlaubnis().then((ok) => {
+    if (!ok) {
+      melde(window.DeviceOrientationEvent ? "Ohne Zugriff auf den Kompass kann sich die Karte nicht mitdrehen." : "Dieses Gerät hat keinen Kompass – die Karte bleibt mit Norden oben.", 6);
+      return;
+    }
+    karteKompass.an = true; karteKompass.roh = null; karteKompass.zeit = 0;
+    karteKompass.dekl = ort ? missweisung(ort.lat, ort.lon, 0, new Date()) : 0;
+    window.addEventListener("deviceorientationabsolute", karteKompassEreignis, true);
+    window.addEventListener("deviceorientation", karteKompassEreignis, true);
+    $("#himmel-kompass").setAttribute("aria-pressed", "true");
+    melde("Leg das Handy flach hin – die Karte dreht sich so, dass ihre Richtungen zur Wirklichkeit passen.", 5);
+    setTimeout(() => {
+      if (karteKompass.an && !karteKompass.zeit) { karteKompassAus(); melde("Kein Kompass gefunden. Leg das Handy so hin, dass seine Oberkante nach Norden zeigt.", 7); }
+    }, 2500);
+  });
+});
+
+// ---------------------------------------------------------------- Infobox
+/* Die Infobox schwebt über allem: auf dem Handy oben über dem Globus (Blatt klein oder halb)
+   bzw. unten über dem Blatt (Blatt ganz oben), am PC links neben der Leiste. */
+function sonde(hoehe) {
+  const d = document.createElement("div");
+  d.style.cssText = `position:fixed;left:-20px;top:0;width:1px;visibility:hidden;pointer-events:none;height:${hoehe}`;
+  document.body.appendChild(d);
+  return d;
+}
+const SONDE = { klein: sonde("var(--blatt-klein)"), halb: sonde("var(--blatt-halb)"), gross: sonde("var(--blatt-gross)"), unten: sonde("var(--sicher-unten)"), oben: sonde("var(--sicher-oben)") };
+/** Oberkante des Blatts, wenn es seine Zielhöhe erreicht hat */
+function blattObenZiel() { return window.innerHeight - SONDE[blatt.dataset.hoehe || "klein"].offsetHeight; }
+
+function boxOeffnen(art) {
+  const neu = box.hidden || boxArt !== art;
+  boxArt = art;
+  $("#steckbrief").hidden = art !== "sat";
+  $("#objektinfo").hidden = art !== "objekt";
+  box.hidden = false;
+  if (neu) box.scrollTop = 0;
+  boxLage();
+}
+function boxZu() {
+  if (box.hidden) return;
+  box.hidden = true;
+  boxArt = null;
+  box.classList.remove("eingeklappt");
+  document.body.classList.remove("box-oben");
+  versatzAnpassen();
+}
+function boxLage() {
+  if (box.hidden) return;
+  const H = window.innerHeight;
+  if (PC.matches) { box.dataset.lage = "seite"; box.style.maxHeight = ""; }
+  else if (blatt.dataset.hoehe === "gross") {
+    // Blatt ganz oben: Box unten über das Blatt legen – in der Himmelskarte nur unter die Karte
+    box.dataset.lage = "unten";
+    let max = H * 0.46;
+    if (!$("#seite-himmel").hidden) {
+      const frei = H - $("#himmel-karte").getBoundingClientRect().bottom - 14 - SONDE.unten.offsetHeight;
+      if (frei > 190) max = Math.min(frei, H * 0.5);
+    }
+    box.style.maxHeight = Math.round(max) + "px";
+  } else {
+    box.dataset.lage = "oben";
+    const oben = SONDE.oben.offsetHeight + 58;
+    box.style.maxHeight = Math.round(Math.max(150, Math.min(blattObenZiel() - oben - 10, H * 0.56))) + "px";
+  }
+  document.body.classList.toggle("box-oben", box.dataset.lage === "oben");
+  versatzAnpassen();
+}
+new ResizeObserver(() => { if (!box.hidden) versatzAnpassen(); }).observe(box);
+box.addEventListener("click", (e) => {
+  if (!e.target.closest("[data-klappen]")) return;
+  box.classList.toggle("eingeklappt");
+  box.scrollTop = 0;
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || box.hidden || zeigen.offen || document.querySelector("dialog[open]")) return;
+  if (boxArt === "sat") waehle(-1); else objektZu();
+});
+
 // ---------------------------------------------------------------- Auswahl und Steckbrief
-let vorReiter = "oben";
 function waehle(i, oeffnen = true) {
   if (i == null || i < 0 || i >= sats.length) {
     if (auswahl >= 0) {
@@ -810,32 +962,34 @@ function waehle(i, oeffnen = true) {
       takter.postMessage({ typ: "auswahl", i: -1 });
       globus.setzeBahnZiel(issIdx);
       zuletztBahn = 0;
-      if (!$("#seite-steckbrief").hidden) zeigeReiter(vorReiter, false);
+      if (!$("#seite-oben").hidden) listeZeichnen(true);
+      if (!$("#seite-himmel").hidden) himmelZeichnen();
     }
+    if (boxArt === "sat") boxZu();
     return;
   }
-  if (auswahl < 0 && $("#seite-steckbrief").hidden) vorReiter = reiter;
+  if (himmelObjekt) { himmelObjekt = null; }
+  const neu = i !== auswahl;
   auswahl = i;
   globus.setzeAuswahl(i);
   globus.setzeBahnZiel(i);
   zuletztBahn = 0;
   auswahlBahnHimmel = null;
   takter.postMessage({ typ: "auswahl", i });
-  if (oeffnen) steckbriefOeffnen(i);
+  if (oeffnen) { if (neu) box.classList.remove("eingeklappt"); steckbriefOeffnen(i); }
+  if (!$("#seite-oben").hidden) listeZeichnen(true);
   taktAnfordern(true);
 }
 
 function steckbriefOeffnen(i) {
   const s = sats[i];
   orteLaden();
-  for (const x of $$(".seite")) x.hidden = x.id !== "seite-steckbrief";
-  for (const b of $$(".reiter button")) b.setAttribute("aria-selected", "false");
-  if (blatt.dataset.hoehe === "klein") blattHoehe("halb");
-  $("#blatt-inhalt").scrollTop = 0;
   const el = $("#steckbrief");
   const b = bekannt(s[0], s[1]);
   const zeichnen = (erstesMal) => {
+    const offenD = el.querySelector("details") && el.querySelector("details").open;
     el.innerHTML = steckbriefHtml({ sat: s, info: info ? info[String(s[0])] : null, jetzt: Date.now() });
+    if (offenD && !erstesMal) el.querySelector("details").open = true;
     el.dataset.id = s[0];
     steckbriefLive();
     if (erstesMal) {
@@ -850,7 +1004,9 @@ function steckbriefOeffnen(i) {
     }
   };
   paesseCache = null; wikiCache = null;
+  if (boxArt === "sat" && el.dataset.id !== String(s[0])) box.scrollTop = 0;
   zeichnen(true);
+  boxOeffnen("sat");
   if (!info) infoLaden().then(() => { if (auswahl === i) zeichnen(false); });
   // Himmelsbahn für Himmelskarte und Zeige-Modus
   frage(vorher, { typ: "himmelsbahn", id: s[0], sat: s, von: Date.now() - 60000, bis: Date.now() + 15 * 60000, schritt: 10000 }).then((m) => {
@@ -889,7 +1045,7 @@ function paesseFuer(i) {
 
 function steckbriefLive() {
   const el = $("#steckbrief");
-  if (auswahl < 0 || $("#seite-steckbrief").hidden || !tick) return;
+  if (auswahl < 0 || boxArt !== "sat" || !tick) return;
   const d = tick.auswahl === auswahl ? tick.detail : null;
   steckbriefAktualisieren(el, { detail: d, st: tick.st[auswahl], sonneEl: tick.sonne.el });
   const folgen = el.querySelector('[data-aktion="folgen"]');
@@ -906,15 +1062,17 @@ $("#steckbrief").addEventListener("click", (e) => {
   const b = e.target.closest("[data-aktion]");
   if (!b) return;
   const a = b.dataset.aktion;
-  if (a === "zurueck") waehle(-1);
+  if (a === "zu") waehle(-1);
   else if (a === "folgen") {
     if (globus.folgen) globus.folgen = false;
-    else { globus.starteFolgen(); if (blatt.dataset.hoehe === "gross") blattHoehe("halb"); }
+    else {
+      globus.starteFolgen();
+      // auf dem Handy Platz für den Globus: Blatt klein, Infobox zusammengeklappt
+      if (!PC.matches) { if (blatt.dataset.hoehe !== "klein") blattHoehe("klein"); box.classList.add("eingeklappt"); }
+    }
     b.setAttribute("aria-pressed", String(globus.folgen));
   } else if (a === "himmel") {
-    const i = auswahl;
     zeigeReiter("himmel");
-    auswahl = i;
   } else if (a === "zeigen") zeigenStarten();
 });
 
@@ -980,14 +1138,21 @@ const zeigen = new Zeigen({
     const st = tick ? tick.st[i] : 0;
     let mag = r.mag;
     if (mag == null && tick) { const o = tick.oben; for (let k = 0; k < o.length; k += 7) if (o[k] === i) { mag = o[k + 4]; break; } }
-    return { name: i === issIdx ? "ISS (Internationale Raumstation)" : anzeigeName(s[1]), kat: s[14] === "iss" ? "Raumstation" : (KAT[s[14]] || KAT.sonst).name, az: r.az, el: r.el, r: r.r, mag: mag != null && mag < 50 ? mag : null, sichtbar: !!(st & 8), licht: !!(st & 4), iss: i === issIdx };
+    const kat = info ? info[String(s[0])] : null;
+    const bt = betreiber(s[1], s[14], kat);
+    return {
+      name: i === issIdx ? "ISS (Internationale Raumstation)" : anzeigeName(s[1]), kat: s[14] === "iss" ? "Raumstation" : (KAT[s[14]] || KAT.sonst).name,
+      was: artWort(s[1], s[14], kat ? kat[0] : null), zweck: bt.zweck, firma: bt.firma,
+      az: r.az, el: r.el, r: r.r, mag: mag != null && mag < 50 ? mag : null, sichtbar: !!(st & 8), licht: !!(st & 4), iss: i === issIdx,
+    };
   },
+  issIdx: () => issIdx,
   satBahn: (i) => frage(vorher, { typ: "himmelsbahn", id: sats[i][0], sat: sats[i], von: Date.now() - 60000, bis: Date.now() + 15 * 60000, schritt: 5000 }),
   onSteckbrief: (i) => waehle(i),
   onRot: (an) => { $("#opt-rot").checked = an; },
   onEinst: () => { himmelSchalter(); if (!$("#seite-himmel").hidden) himmelZeichnen(); },
   melde: (t) => melde(t, 5),
-  onAuf: () => globus.pause(true),
+  onAuf: () => { globus.pause(true); infoLaden(); },
   onZu: () => { globus.pause(false); if (!$("#seite-himmel").hidden) himmelZeichnen(); },
 });
 himmelSchalter();
@@ -1005,6 +1170,60 @@ $("#knopf-himmel").addEventListener("click", () => himmelLiveOeffnen(null));
 function zeigenStarten() {
   if (auswahl < 0) return;
   himmelLiveOeffnen({ art: "sat", i: auswahl });
+}
+
+// ---------------------------------------------------------------- Globus: Seitenansicht, Norden, Überblick
+$("#knopf-3d").addEventListener("click", () => {
+  if (globus.ansicht && globus.ansicht.neigung > 25) globus.zuMir();
+  else { globus.seitenansicht(); if (!PC.matches && blatt.dataset.hoehe === "gross") blattHoehe("halb"); }
+});
+$("#knopf-norden").addEventListener("click", () => globus.nordenAusrichten());
+let knopfStand = "";
+/** Kompassnadel und Würfel-Knopf passend zur Ansicht (jedes Bild, aber nur bei Änderung) */
+function globusKnoepfe() {
+  const a = globus.ansicht;
+  if (!a || typeof a !== "object") return;
+  const gedreht = Math.abs(a.kurs) > 1.5 || a.neigung > 1.5;
+  const stand = `${gedreht}|${Math.round(a.kurs)}|${a.neigung > 25}`;
+  if (stand === knopfStand) return;
+  knopfStand = stand;
+  const n = $("#knopf-norden");
+  n.hidden = !gedreht;
+  n.querySelector("svg").style.transform = `rotate(${-a.kurs}deg)`;
+  $("#knopf-3d").setAttribute("aria-pressed", String(a.neigung > 25));
+  $("#knopf-3d").title = a.neigung > 25 ? "Zurück zur Ansicht von oben" : "Von der Seite ansehen";
+}
+
+function uebersichtSetzen(an) {
+  E.uebersicht = an; sichern();
+  globus.setzeUebersicht(an);
+  $("#knopf-ueberblick").setAttribute("aria-pressed", String(an));
+  legendeZeichnen();
+}
+$("#knopf-ueberblick").addEventListener("click", () => {
+  uebersichtSetzen(!E.uebersicht);
+  if (E.uebersicht) melde("Überblick: alle Satelliten groß, in der Farbe ihrer Art. Tippe in der Farbleiste eine Art an, um sie aus- oder einzublenden.", 6);
+});
+$("#knopf-ueberblick").setAttribute("aria-pressed", String(E.uebersicht));
+/** Farbübersicht der Arten im Überblick – antippen blendet aus und ein */
+function legendeZeichnen() {
+  const el = $("#ueberblick-legende");
+  el.hidden = !E.uebersicht;
+  if (!E.uebersicht) return;
+  const zaehl = {};
+  for (const s of sats) zaehl[s[14]] = (zaehl[s[14]] || 0) + 1;
+  el.innerHTML = Object.entries(KAT).filter(([k]) => zaehl[k]).map(([k, v]) =>
+    `<button class="leg-chip" data-kat="${k}" aria-pressed="${E.filter[k] !== false}"><i class="punkt" style="background:${v.farbe}"></i><span>${esc(v.kurz)}</span><small>${zahl(zaehl[k])}</small></button>`).join("");
+}
+$("#ueberblick-legende").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-kat]");
+  if (b) filterSetzen(b.dataset.kat, E.filter[b.dataset.kat] === false);
+});
+function filterSetzen(k, an) {
+  E.filter[k] = an; sichern();
+  globus.setzeFilter(E.filter);
+  listeZeichnen(true); kurzZeile(); issChip(); legendeZeichnen();
+  if (!$("#seite-himmel").hidden) himmelZeichnen();
 }
 
 // ---------------------------------------------------------------- Einstellungen
@@ -1029,10 +1248,7 @@ for (const d of $$("dialog")) d.addEventListener("click", (e) => { if (e.target 
 $("#knopf-ort").addEventListener("click", () => { globus.zuMir(); if (!ort || ort.quelle !== "gps" || Date.now() - ort.zeit > 10 * 60000) gpsHolen(true); });
 $("#kat-auswahl").addEventListener("change", (e) => {
   const k = e.target.dataset.kat;
-  if (!k) return;
-  E.filter[k] = e.target.checked; sichern();
-  globus.setzeFilter(E.filter);
-  listeZeichnen(true); kurzZeile(); issChip();
+  if (k) filterSetzen(k, e.target.checked);
 });
 $("#himmel-wahl").addEventListener("change", (e) => {
   E.himmel = Number(e.target.value); sichern();
@@ -1101,4 +1317,4 @@ function startFertig() {
 })();
 
 // zum Testen von außen
-window.__sus = { get tick() { return tick; }, get sats() { return sats; }, get auswahl() { return auswahl; }, waehle, globus, get ort() { return ort; }, get issPaesse() { return issPaesse; }, get nachtListe() { return nachtListe; }, zeigen, himmelDaten, himmelLiveOeffnen, ortName, unterpunkt };
+window.__sus = { get tick() { return tick; }, get sats() { return sats; }, get auswahl() { return auswahl; }, waehle, globus, get ort() { return ort; }, get issPaesse() { return issPaesse; }, get nachtListe() { return nachtListe; }, zeigen, himmelDaten, himmelLiveOeffnen, ortName, unterpunkt, objektZeigen, uebersichtSetzen, get boxArt() { return boxArt; }, himmel, zeigeReiter, blattHoehe };

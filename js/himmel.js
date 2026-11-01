@@ -1,4 +1,5 @@
-// Himmelskarte: der Himmel von unten gesehen (Mitte = Zenit, Rand = Horizont, Norden oben, Osten links)
+// Himmelskarte wie eine Karte, die vor dir auf dem Boden liegt: Mitte = Zenit, Rand = Horizont,
+// Norden oben, Osten rechts. Mit Kompass dreht sich die Karte so, dass ihre Richtungen zur Wirklichkeit passen.
 import * as A from "./astro.js";
 import { enuZuAzEl } from "./himmelsdaten.js";
 import { Etiketten } from "./etiketten.js";
@@ -6,9 +7,10 @@ import { Etiketten } from "./etiketten.js";
 export class Himmel {
   constructor(canvas, opt = {}) {
     this.c = canvas;
-    this.opt = opt; // { himmel: HimmelDaten, einst: () => ({sternbilder, planeten}), onWahl(i), onObjekt(o) }
+    this.opt = opt; // { himmel: HimmelDaten, einst: () => ({satelliten, sternbilder, planeten}), onWahl(i), onObjekt(o) }
     this.punkte = [];
     this.daten = null;
+    this.drehung = 0; // Himmelsrichtung (Grad), die oben auf der Karte liegt
     canvas.addEventListener("click", (e) => {
       const r = canvas.getBoundingClientRect();
       const x = e.clientX - r.left, y = e.clientY - r.top;
@@ -24,7 +26,7 @@ export class Himmel {
       const rr = Math.hypot(x - this.cx, y - this.cy);
       if (HD && HD.bereit && rr <= this.R) {
         const el = 90 - rr / this.R * 90;
-        const az = (Math.atan2(-(x - this.cx), -(y - this.cy)) * A.DEG + 360) % 360;
+        const az = ((Math.atan2(x - this.cx, -(y - this.cy)) * A.DEG + this.drehung) % 360 + 360) % 360;
         const ae = Math.sin(az * A.RAD) * Math.cos(el * A.RAD), an = Math.cos(az * A.RAD) * Math.cos(el * A.RAD), au = Math.sin(el * A.RAD);
         const rd = HD.enuZuRaDec(ae, an, au);
         const sb = rd && HD.sternbildAn(rd.ra, rd.dec);
@@ -35,14 +37,15 @@ export class Himmel {
 
   xy(az, el) {
     const r = this.R * (90 - el) / 90;
-    const a = az * A.RAD;
-    return { x: this.cx - r * Math.sin(a), y: this.cy - r * Math.cos(a) };
+    const a = (az - this.drehung) * A.RAD;
+    return { x: this.cx + r * Math.sin(a), y: this.cy - r * Math.cos(a) };
   }
   xyEnu(e, n, u) {
     const el = Math.asin(Math.max(-1, Math.min(1, u))) * A.DEG;
     const r = this.R * (90 - el) / 90;
     const h = Math.hypot(e, n) || 1e-9;
-    return { x: this.cx - r * e / h, y: this.cy - r * n / h };
+    const c = this._cos, sn = this._sin;
+    return { x: this.cx + r * (e * c - n * sn) / h, y: this.cy - r * (n * c + e * sn) / h };
   }
 
   zeichne(d) {
@@ -57,16 +60,17 @@ export class Himmel {
     g.setTransform(pr, 0, 0, pr, 0, 0);
     g.clearRect(0, 0, w, h);
     this.cx = w / 2; this.cy = h / 2; this.R = Math.min(w, h) / 2 - 22;
+    this._cos = Math.cos(this.drehung * A.RAD); this._sin = Math.sin(this.drehung * A.RAD);
     const { cx, cy, R } = this;
     const sonneEl = d && d.sonne ? d.sonne.el : -90;
     const HD = this.opt.himmel;
     const einst = this.opt.einst ? this.opt.einst() : { sternbilder: true, planeten: true };
-    // Hintergrund je nach Sonnenstand
+    // Hintergrund je nach Sonnenstand (am Tag gedämpftes Blau, damit die Schrift lesbar bleibt)
     const hell = Math.max(0, Math.min(1, (sonneEl + 12) / 14));
     const dunkel = Math.max(0, Math.min(1, (-sonneEl - 2) / 12));
     const grad = g.createRadialGradient(cx, cy, 0, cx, cy, R);
-    grad.addColorStop(0, mix("#050a18", "#3d6fb0", hell));
-    grad.addColorStop(1, mix("#0e1a33", "#8fb6e0", hell));
+    grad.addColorStop(0, mix("#050a18", "#1d4378", hell));
+    grad.addColorStop(1, mix("#0e1a33", "#3f6ea6", hell));
     g.fillStyle = grad;
     g.beginPath(); g.arc(cx, cy, R, 0, 2 * Math.PI); g.fill();
     // Raster
@@ -77,7 +81,7 @@ export class Himmel {
       g.beginPath(); g.moveTo(cx, cy); g.lineTo(p.x, p.y); g.stroke();
     }
     this.punkte = [];
-    const et = new Etiketten(g, w, h);
+    const et = new Etiketten(g, w, h, [], { kontur: "rgba(2,6,16,0.82)" });
     if (d && HD && HD.bereit) {
       // Sternbild-Linien
       if (einst.sternbilder) {
@@ -135,6 +139,7 @@ export class Himmel {
     g.fillStyle = "#c9d4ec"; g.font = "600 13px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
     for (const [t, az] of [["N", 0], ["O", 90], ["S", 180], ["W", 270]]) {
       const p = this.xy(az, -9.5);
+      g.fillStyle = t === "N" ? "#ff8a7a" : "#c9d4ec";
       g.fillText(t, p.x, p.y);
       et.sperre(p.x, p.y, 8);
     }

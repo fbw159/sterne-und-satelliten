@@ -35,6 +35,12 @@
     <symbol id="i-rot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
     <symbol id="i-kompass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 5.2l2.7 6.8L12 18.8 9.3 12z" fill="currentColor" opacity=".45"/><path d="M12 5.2l2.7 6.8H9.3z" fill="currentColor"/></symbol>
     <symbol id="i-pfeil" viewBox="0 0 24 24"><path d="M4 12h14M12.5 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-suche" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.4 15.4 21 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-sat" viewBox="0 0 24 24"><rect x="9.3" y="9.3" width="5.4" height="5.4" rx="1" fill="currentColor" transform="rotate(45 12 12)"/><path d="M4.2 13.6l3.2-3.2 3 3-3.2 3.2zM13.6 4.2l3.2-3.2 3 3-3.2 3.2z" fill="currentColor" opacity=".85" transform="translate(0 2.6)"/><path d="M5.8 18.2a3.2 3.2 0 0 0 3.6.6M3.3 20.7a6.6 6.6 0 0 0 7.4 1.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-3d" viewBox="0 0 24 24"><path d="M12 2.8 3.6 7.4v9.2l8.4 4.6 8.4-4.6V7.4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3.6 7.4 12 12l8.4-4.6M12 12v9.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-nadel" viewBox="0 0 24 24"><path d="M12 2.5 15.6 12h-7.2z" fill="#ff6b5a"/><path d="M12 21.5 8.4 12h7.2z" fill="currentColor" opacity=".9"/><circle cx="12" cy="12" r="1.6" fill="#0b1020"/></symbol>
+    <symbol id="i-alle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="6.2" cy="6.4" r="1.9" fill="currentColor"/><circle cx="17.8" cy="5.6" r="1.9" fill="currentColor"/><circle cx="20.6" cy="14.2" r="1.9" fill="currentColor"/><circle cx="4" cy="15.4" r="1.9" fill="currentColor"/><circle cx="14.6" cy="20.6" r="1.9" fill="currentColor"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></symbol>
+    <symbol id="i-klappen" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-iss" viewBox="0 0 40 24"><rect x="17" y="9" width="6" height="6" rx="1" fill="currentColor"/><rect x="4" y="11.2" width="32" height="1.6" fill="currentColor"/><rect x="1" y="2" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="1" y="13" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="7" y="2" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="7" y="13" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="28" y="2" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="28" y="13" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="34" y="2" width="5" height="9" fill="currentColor" opacity=".85"/><rect x="34" y="13" width="5" height="9" fill="currentColor" opacity=".85"/></symbol>
   </defs>
 </svg>
@@ -56,6 +62,12 @@
 
 <button id="iss-chip" class="chip-iss" hidden><svg><use href="#i-iss"/></svg><span id="iss-chip-text">ISS</span></button>
 <button id="knopf-himmel" class="knopf-himmel" title="Handy hochhalten: Sterne, Planeten und Satelliten finden"><svg><use href="#i-himmel"/></svg><span>Himmel live</span></button>
+<div class="globus-knoepfe" id="globus-knoepfe">
+  <button class="rund" id="knopf-3d" aria-pressed="false" title="Von der Seite ansehen" aria-label="Von der Seite ansehen"><svg><use href="#i-3d"/></svg></button>
+  <button class="rund" id="knopf-norden" title="Norden nach oben" aria-label="Norden nach oben" hidden><svg><use href="#i-nadel"/></svg></button>
+</div>
+<button id="knopf-ueberblick" class="knopf-ueberblick" aria-pressed="false" title="Alle Satelliten deutlich zeigen – in der Farbe ihrer Art"><svg><use href="#i-alle"/></svg><span>Überblick</span></button>
+<div id="ueberblick-legende" class="ueberblick-legende" hidden aria-label="Arten ein- und ausblenden"></div>
 
 <div id="meldung" role="status" hidden></div>
 <div id="lade" class="lade"><div class="lade-kreis"></div><p id="lade-text">Lade Erde und Bahndaten …</p></div>
@@ -92,30 +104,32 @@
     </section>
 
     <section class="seite" id="seite-himmel" hidden>
-      <div class="himmel-kopf">
-        <div class="filter" role="group" aria-label="Anzeige">
-          <button data-himmel="sternbilder" aria-pressed="true">Sternbilder</button>
-          <button data-himmel="planeten" aria-pressed="true">Planeten</button>
-        </div>
-        <button class="knopf knopf-live" id="himmel-live"><svg><use href="#i-himmel"/></svg>Himmel live</button>
+      <div class="filter himmel-filter" role="group" aria-label="Anzeige">
+        <button data-himmel="satelliten" aria-pressed="true">Satelliten</button>
+        <button data-himmel="sternbilder" aria-pressed="true">Sternbilder</button>
+        <button data-himmel="planeten" aria-pressed="true">Planeten</button>
       </div>
-      <p class="hinweis-klein">Dein Himmel von unten gesehen: Mitte = genau über dir, Rand = Horizont. Norden oben, Osten links. Tippe auf einen Stern, Planeten, Satelliten oder ein Sternbild.</p>
-      <div class="himmel-rahmen"><canvas id="himmel-karte" aria-label="Himmelskarte"></canvas></div>
-      <div class="info-karte" id="himmel-info" hidden></div>
+      <div class="himmel-rahmen">
+        <canvas id="himmel-karte" aria-label="Himmelskarte"></canvas>
+        <button class="rund klein himmel-kompass" id="himmel-kompass" aria-pressed="false" title="Karte mit dem Kompass drehen" aria-label="Karte mit dem Kompass drehen"><svg><use href="#i-kompass"/></svg></button>
+      </div>
+      <p class="hinweis-klein" id="himmel-hinweis">Dein Himmel wie eine Karte, die vor dir auf dem Boden liegt: Mitte = genau über dir, Rand = Horizont, Norden oben, Osten rechts. Leg das Handy flach hin, Oberkante nach Norden – oder tippe auf den Kompass oben rechts, dann dreht sich die Karte von selbst richtig. Tippe auf einen Stern, Planeten, Satelliten oder ein Sternbild.</p>
       <div class="legende">
         <span><i class="punkt p-sichtbar"></i>mit bloßem Auge sichtbar</span>
         <span><i class="punkt p-licht"></i>angestrahlt</span>
         <span><i class="punkt p-schatten"></i>im Erdschatten</span>
       </div>
+      <div class="knopf-reihe"><button class="knopf knopf-live" id="himmel-live"><svg><use href="#i-himmel"/></svg>Himmel live: Handy hochhalten</button></div>
       <h3 class="abschnitt">Mond und Planeten</h3>
       <ol class="planeten-liste" id="planeten-liste"><li class="leer">wird berechnet …</li></ol>
     </section>
-
-    <section class="seite" id="seite-steckbrief" hidden>
-      <div id="steckbrief"></div>
-    </section>
   </div>
 </main>
+
+<aside id="infobox" class="infobox" hidden aria-label="Infobox">
+  <div id="steckbrief" hidden></div>
+  <div id="objektinfo" hidden></div>
+</aside>
 
 <div id="zeigen" class="zeigen" hidden>
   <video id="zeigen-video" playsinline muted autoplay></video>
@@ -128,19 +142,30 @@
     <button class="rund hell knopf-rot" id="zeigen-rot" aria-pressed="false" aria-label="Rotlicht ein oder aus" title="Rotlicht: schont die Augen im Dunkeln"><svg><use href="#i-rot"/></svg></button>
     <button class="rund hell" id="zeigen-zu" aria-label="Himmel live schließen"><svg><use href="#i-zu"/></svg></button>
   </div>
+  <div class="zeigen-seite">
+    <button class="rund hell knopf-suche" id="zeigen-suchen" aria-label="Suchen" title="Sternbild, Planet oder Stern suchen"><svg><use href="#i-suche"/></svg></button>
+    <button class="rund hell" id="zeigen-kamera" aria-pressed="false" aria-label="Kamerabild ein oder aus" title="Kamerabild"><svg><use href="#i-kamera"/></svg></button>
+    <button class="rund hell" id="zeigen-kompass" aria-pressed="false" aria-label="Kompass abgleichen" title="Kompass abgleichen"><svg><use href="#i-kompass"/></svg></button>
+  </div>
   <p class="zeigen-anweisung" id="zeigen-anweisung" hidden></p>
   <div class="zeigen-unten">
     <p class="zeigen-fuss" id="zeigen-fuss"></p>
     <div class="zeigen-chips" id="zeigen-chips"></div>
-    <div class="zeigen-leiste">
-      <button class="pille" id="zeigen-sternbilder" aria-pressed="true"><svg><use href="#i-sternbild"/></svg><span>Sternbilder</span></button>
-      <button class="pille" id="zeigen-planeten" aria-pressed="true"><svg><use href="#i-planet"/></svg><span>Planeten</span></button>
-      <span class="leiste-platz"></span>
-      <button class="rund hell" id="zeigen-kamera" aria-pressed="false" aria-label="Kamerabild ein oder aus" title="Kamerabild"><svg><use href="#i-kamera"/></svg></button>
-      <button class="rund hell" id="zeigen-kompass" aria-pressed="false" aria-label="Kompass abgleichen" title="Kompass abgleichen"><svg><use href="#i-kompass"/></svg></button>
+    <div class="zeigen-leiste" role="group" aria-label="Anzeige">
+      <button class="pille" id="zeigen-satelliten" aria-pressed="true" title="Satelliten zeigen"><svg><use href="#i-sat"/></svg><span>Satelliten</span></button>
+      <button class="pille" id="zeigen-sternbilder" aria-pressed="true" title="Sternbilder zeigen"><svg><use href="#i-sternbild"/></svg><span>Sternbilder</span></button>
+      <button class="pille" id="zeigen-planeten" aria-pressed="true" title="Planeten zeigen"><svg><use href="#i-planet"/></svg><span>Planeten</span></button>
     </div>
   </div>
   <div class="info-karte zeigen-info" id="zeigen-info" hidden></div>
+  <div class="zeigen-suche" id="zeigen-suche" hidden role="dialog" aria-label="Suche">
+    <div class="suche-kopf">
+      <svg><use href="#i-suche"/></svg>
+      <input type="search" id="zeigen-suchfeld" placeholder="Sternbild, Planet, Stern …" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Suchbegriff">
+      <button class="rund klein hell" id="zeigen-suche-zu" aria-label="Suche schließen"><svg><use href="#i-zu"/></svg></button>
+    </div>
+    <ol class="such-liste" id="zeigen-suchliste"></ol>
+  </div>
   <div class="zeigen-feld" id="zeigen-kompass-feld" hidden>
     <p class="feld-titel">Kompass abgleichen</p>
     <p class="hinweis-klein">Nimm einen hellen Stern, einen Planeten oder den Mond genau in den Kreis in der Mitte und tippe auf „Abgleichen“. Oder verschiebe die Richtung von Hand.</p>
@@ -190,9 +215,12 @@
 <dialog id="hilfe" class="dialog">
   <form method="dialog" class="dialog-kopf"><h2>So funktioniert's</h2><button class="rund" aria-label="Schließen"><svg><use href="#i-zu"/></svg></button></form>
   <div class="dialog-inhalt texte">
-    <p><b>Globus:</b> Mit einem Finger drehen, mit zwei Fingern zoomen. Tippe einen Punkt an, um zu sehen, was es für ein Satellit ist. Der Knopf oben rechts bringt dich zurück zu deinem Standort. Feine Linien zeigen Küsten und Landesgrenzen.</p>
+    <p><b>Globus:</b> Mit einem Finger verschieben. Mit zwei Fingern zoomen (auseinander oder zusammen), drehen (Finger im Kreis) und neigen (beide Finger nebeneinander nach oben oder unten schieben) – so siehst du die Satelliten über dir von der Seite. Der Knopf mit dem Würfel bringt dich direkt in diese Seitenansicht, die Kompassnadel richtet alles wieder nach Norden aus. Am PC: ziehen = verschieben, mit der rechten Maustaste (oder Strg) ziehen = drehen und neigen, Mausrad = zoomen.</p>
+    <p><b>Infobox:</b> Tippe einen Satelliten an – eine Infobox zeigt, was er ist, wofür er da ist, wer ihn betreibt, seit wann er im All ist, wo er gerade ist und wann er wieder über dich fliegt. Mit dem Pfeil klappst du sie klein, mit dem Kreuz schließt du sie.</p>
+    <p><b>Überblick:</b> Der Knopf unten links zeigt alle Satelliten groß und in der Farbe ihrer Art. Darüber erscheint die Farbübersicht: Tippe auf eine Art, um sie aus- oder einzublenden.</p>
     <p><b>Farben:</b> <i class="punkt p-sichtbar"></i> gelb leuchtend = jetzt mit bloßem Auge zu sehen. <i class="punkt p-licht"></i> hell = von der Sonne angestrahlt. <i class="punkt p-schatten"></i> blass = im Erdschatten, also unsichtbar. Große Punkte stehen über deinem Horizont, kleine blasse sind woanders.</p>
-    <p><b>Himmel live:</b> Tippe auf „Himmel live“ und halte das Handy hoch wie zum Fotografieren. Du siehst den Himmel in der Richtung, in die das Handy zeigt – mit Sternen, Sternbildern, Planeten, Mond und Satelliten. Was du jetzt sehen kannst, ist hervorgehoben und steht unten unter „Jetzt zu sehen“. Tippe etwas an, um zu erfahren, was es ist, und auf „Hinführen“: Ein Pfeil führt dich hin, im Ziel wird das Fadenkreuz grün.</p>
+    <p><b>Himmel live:</b> Tippe auf „Himmel live“ und halte das Handy hoch wie zum Fotografieren. Du siehst den Himmel in der Richtung, in die das Handy zeigt – mit Sternen, Sternbildern, Planeten, Mond und Satelliten. Was du jetzt sehen kannst, ist hervorgehoben und steht unten unter „Jetzt zu sehen“. Tippe etwas an, um zu erfahren, was es ist, und auf „Hinführen“: Ein Pfeil führt dich hin, im Ziel wird das Fadenkreuz grün. Mit der Lupe suchst du ein Sternbild, einen Planeten oder Stern (auch „Großer Wagen“ oder „Plejaden“) und lässt dich direkt hinführen. Unten schaltest du Satelliten, Sternbilder und Planeten einzeln ein und aus.</p>
+    <p><b>Himmelskarte</b> (Reiter „Himmel“): Sie ist wie eine Karte, die vor dir auf dem Boden liegt – Norden oben, Osten rechts. Leg das Handy flach hin, Oberkante nach Norden, oder schalte den Kompass in der Ecke der Karte ein: Dann dreht sich die Karte von selbst richtig.</p>
     <p><b>Rotlicht:</b> Draußen im Dunkeln gewöhnen sich die Augen nach etwa 20 Minuten an die Nacht. Helles weißes Licht macht das sofort zunichte, rotes kaum. Der Knopf mit dem halben Kreis schaltet alles auf Rot.</p>
     <p><b>Kompass:</b> Handys können einige Grad danebenliegen. Bewege das Handy ein paar Mal in Form einer liegenden Acht. Noch genauer: Kompass-Knopf, einen hellen Stern, Planeten oder den Mond in den Kreis nehmen und „Abgleichen“ tippen.</p>
     <p><b>Wann sieht man einen Satelliten?</b> Er leuchtet nicht selbst, sondern spiegelt Sonnenlicht. Sichtbar ist er, wenn er über deinem Horizont steht, noch von der Sonne angestrahlt wird und es bei dir schon dunkel ist – also vor allem kurz nach Sonnenuntergang und vor Sonnenaufgang.</p>

@@ -128,6 +128,7 @@ b { font-weight: 650; }
   padding: 9px 6px; border-bottom: 1px solid rgba(140, 160, 200, .1); cursor: pointer; border-radius: 8px;
 }
 .sat-liste li:active, .pass-liste li:active { background: rgba(255, 255, 255, .06); }
+.sat-liste li.gewaehlt { background: rgba(255, 179, 64, .12); box-shadow: inset 3px 0 0 var(--iss); }
 .sat-liste .name { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sat-liste .unter { grid-column: 2; font-size: 12.5px; color: var(--leise); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sat-liste .wert { grid-row: 1 / span 2; grid-column: 3; text-align: right; font-size: 13px; color: #cfd7e8; font-variant-numeric: tabular-nums; }
@@ -152,14 +153,14 @@ b { font-weight: 650; }
 .tag-kopf { margin: 14px 2px 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--leise); list-style: none; }
 
 /* Steckbrief */
-.sb-kopf { display: flex; align-items: flex-start; gap: 8px; }
+.sb-kopf { display: flex; align-items: flex-start; gap: 6px; }
 .sb-kopf h2 { margin: 2px 0 0; font-size: 19px; line-height: 1.2; word-break: break-word; }
-.sb-kopf .rund { flex: none; width: 36px; height: 36px; }
+.sb-kopf .rund { flex: none; width: 34px; height: 34px; }
 .sb-unter { color: var(--leise); font-size: 12.5px; margin: 2px 0 0; }
 .sb-titel { flex: 1; min-width: 0; }
 .zustand { display: flex; align-items: center; gap: 8px; margin: 10px 0; padding: 9px 12px; border-radius: 12px; background: var(--flaeche-2); font-size: 14px; }
 .zustand.ja { background: rgba(255, 224, 102, .14); border: 1px solid rgba(255, 224, 102, .45); color: #fff1b8; }
-.raster { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin: 6px 0 12px; }
+.raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px 14px; margin: 6px 0 12px; }
 .raster div { min-width: 0; }
 .raster small { display: block; color: var(--leise); font-size: 11.5px; }
 .raster span { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -187,7 +188,9 @@ b { font-weight: 650; }
 .wiki small { color: var(--leise); }
 
 /* Himmelskarte */
-.himmel-rahmen { width: 100%; max-width: 520px; margin: 0 auto; aspect-ratio: 1; }
+.himmel-rahmen { position: relative; width: 100%; max-width: 520px; margin: 0 auto; aspect-ratio: 1; }
+.himmel-kompass { position: absolute; top: 0; right: 0; }
+.himmel-kompass[aria-pressed="true"], .globus-knoepfe .rund[aria-pressed="true"] { background: rgba(40, 70, 150, .78); border-color: rgba(150, 185, 255, .85); color: #fff; }
 #himmel-karte { width: 100%; height: 100%; display: block; touch-action: manipulation; }
 .legende { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; font-size: 12.5px; color: var(--leise); margin: 8px 0; }
 
@@ -202,7 +205,67 @@ b { font-weight: 650; }
 }
 .knopf-himmel svg { width: 22px; height: 22px; color: #ffe39a; }
 .knopf-himmel:active { transform: scale(.96); }
-body[data-blatt="halb"] .knopf-himmel, body[data-blatt="gross"] .knopf-himmel { opacity: 0; pointer-events: none; transform: translateY(12px); }
+@media (max-width: 899px) {
+  body[data-blatt="halb"] .knopf-himmel, body[data-blatt="gross"] .knopf-himmel,
+  body[data-blatt="halb"] .knopf-ueberblick, body[data-blatt="gross"] .knopf-ueberblick,
+  body[data-blatt="halb"] .ueberblick-legende, body[data-blatt="gross"] .ueberblick-legende { opacity: 0; pointer-events: none; transform: translateY(12px); }
+  body[data-blatt="gross"] .globus-knoepfe, body.box-oben .globus-knoepfe, body.box-oben #iss-chip { visibility: hidden; }
+}
+
+/* ---------- Globus: Überblick, Seitenansicht, Norden ---------- */
+.globus-knoepfe { position: fixed; z-index: 4; right: 10px; top: calc(var(--sicher-oben) + 106px); display: flex; flex-direction: column; gap: 8px; }
+.globus-knoepfe .rund { width: 42px; height: 42px; }
+#knopf-norden svg { width: 26px; height: 26px; }
+.knopf-ueberblick {
+  position: fixed; z-index: 5; left: 12px; bottom: calc(var(--blatt-klein) + 14px);
+  display: inline-flex; align-items: center; gap: 7px; padding: 10px 15px 10px 12px; border-radius: 24px;
+  border: 1px solid rgba(160, 185, 235, .38); background: rgba(16, 22, 38, .8); color: #dfe6f5; font-size: 14.5px; font-weight: 650;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0, 0, 0, .45); transition: opacity .25s, transform .25s;
+}
+.knopf-ueberblick svg { width: 20px; height: 20px; }
+.knopf-ueberblick[aria-pressed="true"] { background: linear-gradient(135deg, rgba(38, 72, 150, .94), rgba(70, 44, 130, .94)); border-color: rgba(160, 195, 255, .65); color: #fff; }
+.knopf-ueberblick:active { transform: scale(.96); }
+.ueberblick-legende {
+  position: fixed; z-index: 5; left: 10px; right: 10px; bottom: calc(var(--blatt-klein) + 68px);
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px; transition: opacity .25s, transform .25s;
+}
+.ueberblick-legende::-webkit-scrollbar { display: none; }
+.leg-chip {
+  flex: none; display: inline-flex; align-items: center; padding: 5px 10px; border-radius: 14px; border: 1px solid rgba(160, 185, 235, .3);
+  background: rgba(12, 17, 30, .85); font-size: 12.5px; font-weight: 650; color: #e3e9f6; white-space: nowrap;
+}
+.leg-chip .punkt { width: 9px; height: 9px; margin-right: 5px; }
+.leg-chip small { color: var(--leise); font-weight: 500; margin-left: 5px; }
+.leg-chip[aria-pressed="false"] { opacity: .5; }
+.leg-chip[aria-pressed="false"] span { text-decoration: line-through; }
+
+/* ---------- Infobox ---------- */
+.infobox {
+  position: fixed; z-index: 8; left: 10px; right: 10px; margin: 0 auto; max-width: 480px;
+  top: calc(var(--sicher-oben) + 58px); max-height: 60dvh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 14px; border-radius: 18px; background: rgba(13, 18, 31, .96);
+  border: 1px solid rgba(160, 185, 235, .3); box-shadow: 0 14px 44px rgba(0, 0, 0, .62);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); animation: box-auf .22s ease-out;
+}
+.infobox[data-lage="unten"] { top: auto; bottom: calc(var(--sicher-unten) + 10px); animation-name: box-auf-unten; }
+@keyframes box-auf { from { opacity: 0; transform: translateY(-10px) scale(.98); } }
+@keyframes box-auf-unten { from { opacity: 0; transform: translateY(12px); } }
+.infobox.eingeklappt #steckbrief > :not(.sb-kopf):not(.zustand) { display: none; }
+.infobox.eingeklappt #objektinfo > :not(.info-kopf) { display: none; }
+.infobox.eingeklappt .info-kopf p { margin-bottom: 0; }
+.infobox .zustand { margin: 8px 0; }
+.knopf-klappen svg { transition: transform .2s; }
+.infobox.eingeklappt .knopf-klappen svg { transform: rotate(180deg); }
+.kopf-knopfe { display: flex; gap: 6px; flex: none; }
+.kurzinfo { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 6px 0 10px; font-size: 14px; }
+.kurzinfo dt { color: var(--leise); font-size: 12.5px; padding-top: 1px; white-space: nowrap; }
+.kurzinfo dd { margin: 0; font-weight: 600; min-width: 0; }
+.kurzinfo dd small { font-weight: 450; color: var(--leise); }
+.mehr-details { margin-top: 12px; border-top: 1px solid var(--linie); }
+.mehr-details summary { cursor: pointer; color: #8fd0ff; font-size: 14px; padding: 10px 0 4px; list-style: none; }
+.mehr-details summary::-webkit-details-marker { display: none; }
+.mehr-details summary::before { content: "▸ "; }
+.mehr-details[open] summary::before { content: "▾ "; }
 
 /* ---------- Himmel live ---------- */
 .zeigen { position: fixed; inset: 0; z-index: 40; background: #02040a; overflow: hidden; touch-action: none; }
@@ -248,8 +311,34 @@ body[data-blatt="halb"] .knopf-himmel, body[data-blatt="gross"] .knopf-himmel { 
 .chip.c-iss { color: var(--iss); border-color: rgba(255, 179, 64, .7); }
 .chip.c-planet { color: #ffe0b0; border-color: rgba(255, 224, 176, .45); }
 .chip.c-mond { color: #eef0f6; }
-.zeigen-leiste { display: flex; align-items: center; gap: 8px; }
-.leiste-platz { flex: 1; }
+.zeigen-leiste { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.zeigen-seite { position: absolute; right: 12px; top: calc(var(--sicher-oben) + 76px); display: flex; flex-direction: column; gap: 10px; }
+.zeigen-seite .rund { width: 44px; height: 44px; }
+.knopf-suche { background: rgba(40, 70, 150, .72) !important; border-color: rgba(150, 185, 255, .7) !important; }
+@media (max-width: 420px) {
+  .zeigen-leiste .pille { padding: 7px 10px; gap: 5px; font-size: 13px; }
+  .zeigen-leiste .pille svg { width: 16px; height: 16px; }
+}
+.zeigen-suche {
+  position: absolute; z-index: 3; left: 10px; right: 10px; top: calc(var(--sicher-oben) + 10px); max-width: 520px; margin: 0 auto;
+  max-height: calc(100dvh - var(--sicher-oben) - 24px); display: flex; flex-direction: column; overflow: hidden;
+  border-radius: 16px; background: #0a0e1a; border: 1px solid var(--linie); box-shadow: 0 12px 40px rgba(0, 0, 0, .6);
+}
+.suche-kopf { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--linie); }
+.suche-kopf > svg { color: var(--leise); flex: none; }
+#zeigen-suchfeld { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font: inherit; font-size: 16px; padding: 6px 2px; }
+#zeigen-suchfeld::placeholder { color: rgba(200, 212, 236, .5); }
+.such-liste { list-style: none; margin: 0; padding: 2px 0 10px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.such-gruppe { padding: 12px 16px 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .6px; color: var(--leise); }
+.such-liste .treffer { display: flex; align-items: center; gap: 6px; padding: 1px 10px 1px 6px; }
+.such-zeile { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; background: none; border: 0; padding: 7px 8px; border-radius: 10px; }
+.such-zeile:active { background: rgba(255, 255, 255, .06); }
+.such-name { font-weight: 650; font-size: 15px; }
+.such-name small { font-weight: 500; color: var(--leise); margin-left: 6px; font-size: 12.5px; }
+.such-art { font-size: 12.5px; color: var(--leise); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.such-art b { color: var(--gruen); font-weight: 650; }
+.knopf-hin { flex: none; padding: 7px 11px; font-size: 13px; border-radius: 11px; }
+.knopf-hin svg { width: 16px; height: 16px; }
 .pille { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(0, 0, 0, .45); font-size: 13.5px; font-weight: 650; color: #c9d2e6; }
 .pille svg { width: 18px; height: 18px; }
 .pille[aria-pressed="true"] { color: #fff; border-color: rgba(150, 185, 255, .75); background: rgba(40, 70, 150, .55); }
@@ -270,7 +359,6 @@ body[data-blatt="halb"] .knopf-himmel, body[data-blatt="gross"] .knopf-himmel { 
   position: absolute; left: 10px; right: 10px; bottom: calc(var(--sicher-unten) + 10px); max-width: 480px; margin: 0 auto;
   max-height: 58dvh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0, 0, 0, .6);
 }
-#himmel-info { margin: 8px 0; }
 .info-kopf { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .info-kopf h3 { margin: 0; font-size: 18px; }
 .info-kopf p { margin: 2px 0 6px; font-size: 13px; color: var(--leise); }
@@ -293,15 +381,21 @@ body[data-blatt="halb"] .knopf-himmel, body[data-blatt="gross"] .knopf-himmel { 
 .zeigen.rot .tabelle td { border-color: rgba(255, 60, 40, .15); }
 .zeigen.rot #zeigen-video.an { filter: grayscale(1) brightness(.55) sepia(1) hue-rotate(-50deg) saturate(6); }
 .zeigen.rot .gelb, .zeigen.rot b { color: #ff7a5a; }
+.zeigen.rot .zeigen-suche { background: #0c0000; border-color: rgba(255, 60, 40, .35); }
+.zeigen.rot #zeigen-suchfeld, .zeigen.rot .such-name, .zeigen.rot .suche-kopf > svg { color: #ff5a48; }
+.zeigen.rot .such-art, .zeigen.rot .such-gruppe, .zeigen.rot .such-name small, .zeigen.rot .such-art b { color: #d8473a; }
+.zeigen.rot #zeigen-suchfeld::placeholder { color: rgba(255, 80, 64, .5); }
+.zeigen.rot .suche-kopf { border-color: rgba(255, 60, 40, .3); }
+.zeigen.rot .such-zeile { background: none !important; border: 0 !important; }
 /* Rotlicht für die übrige Seite */
 body.rotlicht #szene, body.rotlicht #marken, body.rotlicht #kopf, body.rotlicht #iss-chip, body.rotlicht #blatt,
-body.rotlicht .knopf-himmel, body.rotlicht dialog, body.rotlicht #meldung, body.rotlicht #lade {
+body.rotlicht .knopf-himmel, body.rotlicht dialog, body.rotlicht #meldung, body.rotlicht #lade,
+body.rotlicht #infobox, body.rotlicht .globus-knoepfe, body.rotlicht .knopf-ueberblick, body.rotlicht .ueberblick-legende {
   filter: grayscale(1) brightness(.62) sepia(1) hue-rotate(-50deg) saturate(7);
 }
 
 /* Himmelskarte: Kopf mit Schaltern und Planetenliste */
-.himmel-kopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-.himmel-kopf .filter { margin-bottom: 0; }
+.himmel-filter { flex-wrap: wrap; }
 .filter button[data-himmel][aria-pressed="true"] { color: #fff; background: rgba(40, 70, 150, .6); border-color: rgba(150, 185, 255, .75); font-weight: 650; }
 .knopf-live { background: linear-gradient(135deg, rgba(38, 72, 150, .95), rgba(70, 44, 130, .95)); border-color: rgba(160, 195, 255, .55); color: #fff; }
 .knopf-live svg { color: #ffe39a; }
@@ -351,6 +445,10 @@ input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-
   .chip-iss { max-width: calc(100vw - 440px); }
   #meldung { left: calc(50% - 205px); }
   .knopf-himmel { right: 430px; bottom: 22px; }
+  .globus-knoepfe { right: 432px; top: 64px; }
+  .knopf-ueberblick { left: 16px; bottom: 22px; }
+  .ueberblick-legende { left: 16px; right: 440px; bottom: 76px; flex-wrap: wrap; overflow: visible; }
+  .infobox { left: 16px; right: auto; width: 420px; margin: 0; top: calc(var(--sicher-oben) + 104px); max-height: calc(100dvh - 196px); }
 }
 @media (min-width: 900px) and (min-height: 700px) {
   body { font-size: 15.5px; }

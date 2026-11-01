@@ -1,22 +1,21 @@
 // 3D-Globus mit three.js: Erde mit Tag/Nacht, Sterne, Satelliten, Bahnen, Beschriftungen.
 import * as THREE from "../lib/three.min.js";
 import * as A from "./astro.js";
-
-const { OrbitControls } = THREE;
+import { Steuerung, basis, latLonVon } from "./steuerung.js";
 
 export const KAT = {
-  iss: { name: "ISS", farbe: "#ffb340" },
-  station: { name: "Raumstationen & Raumschiffe", farbe: "#ff8a5c" },
-  starlink: { name: "Starlink", farbe: "#8fb3ff" },
-  internet: { name: "Andere Internet-Satelliten", farbe: "#5fd4c4" },
-  navi: { name: "Navigation (GPS, Galileo …)", farbe: "#7ee081" },
-  wetter: { name: "Wetter", farbe: "#4fc3f7" },
-  erde: { name: "Erdbeobachtung", farbe: "#c5e86c" },
-  wissen: { name: "Wissenschaft & Technik", farbe: "#c792ea" },
-  militaer: { name: "Militär", farbe: "#ff6b6b" },
-  funk: { name: "Kommunikation & Funk", farbe: "#f78fb3" },
-  stufe: { name: "Raketenstufen", farbe: "#b9c1d0" },
-  sonst: { name: "Sonstige", farbe: "#8c96a8" },
+  iss: { name: "ISS", kurz: "ISS", farbe: "#ffb340" },
+  station: { name: "Raumstationen & Raumschiffe", kurz: "Stationen", farbe: "#ff8a5c" },
+  starlink: { name: "Starlink", kurz: "Starlink", farbe: "#8fb3ff" },
+  internet: { name: "Andere Internet-Satelliten", kurz: "Internet", farbe: "#5fd4c4" },
+  navi: { name: "Navigation (GPS, Galileo …)", kurz: "Navigation", farbe: "#7ee081" },
+  wetter: { name: "Wetter", kurz: "Wetter", farbe: "#4fc3f7" },
+  erde: { name: "Erdbeobachtung", kurz: "Erdbeobachtung", farbe: "#c5e86c" },
+  wissen: { name: "Wissenschaft & Technik", kurz: "Forschung", farbe: "#c792ea" },
+  militaer: { name: "Militär", kurz: "Militär", farbe: "#ff6b6b" },
+  funk: { name: "Kommunikation & Funk", kurz: "Funk & TV", farbe: "#f78fb3" },
+  stufe: { name: "Raketenstufen", kurz: "Raketenstufen", farbe: "#b9c1d0" },
+  sonst: { name: "Sonstige", kurz: "Sonstige", farbe: "#8c96a8" },
 };
 
 const RE = A.RE;
@@ -58,7 +57,7 @@ void main() {
   vec3 c = mix(dunkel, hell, tag);
   // Glanz von Sonne und Mond auf dem Wasser
   vec3 h = normalize(uSonne + v);
-  c += vec3(1.0, 0.88, 0.70) * pow(max(dot(n, h), 0.0), 60.0) * wasser * smoothstep(0.0, 0.2, mu) * 0.55;
+  c += vec3(1.0, 0.88, 0.70) * pow(max(dot(n, h), 0.0), 90.0) * wasser * smoothstep(0.0, 0.2, mu) * 0.3;
   vec3 hm = normalize(uMond + v);
   c += vec3(0.65, 0.78, 1.0) * pow(max(dot(n, hm), 0.0), 120.0) * wasser * mond * 0.22 * (1.0 - tag);
   // Dämmerungsstreifen
@@ -204,20 +203,19 @@ export class Globus {
     this.renderer = r;
 
     this.szene = new THREE.Scene();
-    this.kamera = new THREE.PerspectiveCamera(40, 1, 0.005, 300);
-    this.kamera.position.set(0, 1.6, 4.8);
+    this.kamera = new THREE.PerspectiveCamera(40, 1, 0.002, 300);
+    this.uebersicht = false;
 
-    const c = new OrbitControls(this.kamera, r.domElement);
-    c.enableDamping = true;
-    c.dampingFactor = 0.085;
-    c.enablePan = false;
-    c.minDistance = 1.07;
-    c.maxDistance = 16;
-    c.zoomSpeed = 0.9;
-    c.rotateSpeed = 0.5;
-    c.addEventListener("start", () => { this.folgen = false; this.flug = null; this.letzteAktion = performance.now(); if (this.opt.onBedienung) this.opt.onBedienung(); });
-    c.addEventListener("change", () => { this.letzteAktion = performance.now(); });
-    this.steuerung = c;
+    // eigene Steuerung: verschieben, zoomen, drehen und neigen (Blick von der Seite)
+    this.steuerung = new Steuerung(this.kamera, r.domElement, {
+      onStart: (art) => {
+        if (art === "schieben") this.folgen = false;
+        this.letzteAktion = performance.now();
+        if (this.opt.onBedienung) this.opt.onBedienung(art);
+      },
+      onAenderung: () => { this.letzteAktion = performance.now(); },
+      folgt: () => this.folgen && this.auswahl >= 0,
+    });
 
     this._erde();
     this._satelliten();
@@ -464,6 +462,13 @@ export class Globus {
     this._faerben();
   }
 
+  /** Überblick: alle Satelliten groß und kräftig in der Farbe ihrer Art */
+  setzeUebersicht(an) {
+    this.uebersicht = !!an;
+    if (this.tick) this._faerben();
+    this.letzteAktion = performance.now();
+  }
+
   _faerben() {
     const st = this.tick.st, n = this.n, f = this.aFarbe.array, gr = this.aGr.array, w = this.aWichtig.array;
     const c = new THREE.Color();
@@ -474,6 +479,15 @@ export class Globus {
       const basis = this.katFarbe[kat] || this.katFarbe.sonst;
       let g, a;
       const oben = s & 2;
+      if (this.uebersicht) {
+        if (s & 8) { c.copy(GELB); g = 12; }
+        else { c.copy(basis).lerp(WEISS, 0.12); if (!(s & 4)) c.multiplyScalar(0.8); g = oben ? 7.5 : 6; }
+        if (i === this.auswahl) g = Math.max(g, 10);
+        f[4 * i] = c.r; f[4 * i + 1] = c.g; f[4 * i + 2] = c.b; f[4 * i + 3] = 1;
+        gr[i] = g;
+        w[i] = 1;
+        continue;
+      }
       // über deinem Horizont: groß und kräftig; alle übrigen dezent im Hintergrund
       if (s & 8) { c.copy(GELB); g = 13; a = 1; }
       else if (s & 4) { c.copy(basis).lerp(WEISS, oben ? 0.4 : 0.08); g = oben ? 7 : 3.4; a = oben ? 1 : 0.78; }
@@ -608,53 +622,51 @@ export class Globus {
     this.kamera.updateProjectionMatrix();
   }
 
-  /** Kamera zu einer Richtung (Szenenvektor) fliegen */
-  fliegeZu(richtung, abstand, dauer = 1400, log = false) {
-    const start = this.kamera.position.clone();
-    const ziel = richtung.clone().normalize();
-    this.flug = { t0: performance.now(), dauer, von: start.clone().normalize(), nach: ziel, d0: start.length(), d1: abstand ?? start.length(), log };
-    this.folgen = false;
-  }
-
-  /** Blickrichtung auf den eigenen Ort: leicht von Süden, damit der Himmel darüber gut zu sehen ist */
-  _mirBlick() {
-    const v = this.beob.v.clone().normalize();
-    const nord = new THREE.Vector3(0, 1, 0);
-    return v.clone().add(nord.clone().sub(v.clone().multiplyScalar(v.dot(nord))).multiplyScalar(-0.35)).normalize();
+  /** Blick auf den eigenen Ort: etwas südlich davon, damit der Himmel darüber gut zu sehen ist */
+  _mirPose(abstand) {
+    const la = this.beob.lat;
+    return { lat: Math.max(-89, la - 19), lon: this.beob.lon, kurs: 0, neigung: 0, abstand: abstand ?? this.passenderAbstand(0.8) - 1 };
   }
 
   zuMir(abstand) {
     if (!this.beob) return;
-    if (abstand == null) abstand = this.passenderAbstand(0.8);
-    this.fliegeZu(this._mirBlick(), abstand);
+    this.folgen = false;
+    this.steuerung.fliege(this._mirPose(abstand == null ? null : abstand - 1), 1400);
   }
 
   /** Anflug beim Start: aus dem All heran, die Erde dreht sich dabei in ihrer echten Drehrichtung */
   anflug() {
     if (!this.beob) return;
-    const ziel = this._mirBlick();
-    const d1 = this.passenderAbstand(0.8);
+    const ziel = this._mirPose();
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      this.kamera.position.copy(ziel.multiplyScalar(d1));
+      this.steuerung.setzePose(ziel);
       return;
     }
-    if (this.kamera.position.length() < 9) {
-      const start = ziel.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 1.75);
-      start.y = start.y * 0.6 + 0.28;
-      this.kamera.position.copy(start.normalize()).multiplyScalar(15);
-      this.steuerung.update();
+    if (this.steuerung.pose.abstand < 8) {
+      this.steuerung.setzePose({ lat: Math.max(-70, Math.min(70, ziel.lat * 0.6 + 16)), lon: ziel.lon + 100, kurs: 0, neigung: 0, abstand: 14 });
     }
-    this.fliegeZu(ziel, d1, 3400, true);
+    this.steuerung.fliege(ziel, 3400, true);
   }
 
   /** Solange der Standort fehlt: Erde aus der Ferne */
   fernStart() {
-    const v = new THREE.Vector3(Math.cos(0.35) * Math.cos(0.17), Math.sin(0.35), -Math.cos(0.35) * Math.sin(0.17));
-    this.kamera.position.copy(v.multiplyScalar(15));
-    this.steuerung.update();
+    this.steuerung.setzePose({ lat: 20, lon: 10, kurs: 0, neigung: 0, abstand: 14 });
   }
 
-  starteFolgen() { if (this.auswahl >= 0) { this.folgen = true; this.flug = null; } }
+  /** Blick von der Seite auf den eigenen Ort: die Satelliten über dir stehen über dem Horizont */
+  seitenansicht() {
+    this.folgen = false;
+    const ziel = this.beob ? { lat: this.beob.lat, lon: this.beob.lon } : {};
+    this.steuerung.fliege({ ...ziel, neigung: 62, abstand: 0.7 }, 1700);
+  }
+
+  /** Norden nach oben und wieder senkrecht von oben */
+  nordenAusrichten() { this.steuerung.fliege({ kurs: 0, neigung: 0 }, 700); }
+
+  /** aktueller Kurs und Neigung (für die Knöpfe) */
+  get ansicht() { const p = this.steuerung.pose; return { kurs: p.kurs, neigung: p.neigung, abstand: p.abstand }; }
+
+  starteFolgen() { if (this.auswahl >= 0) { this.folgen = true; this.steuerung.flug = null; this.steuerung.schwung = null; } }
 
   // ------------------------------------------------------------ Rechnen
   _matrix(ms) {
@@ -705,8 +717,16 @@ export class Globus {
   _tippen() {
     const el = this.renderer.domElement;
     let start = null;
-    el.addEventListener("pointerdown", (e) => { start = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }; });
+    const unten = new Set();
+    el.addEventListener("pointerdown", (e) => {
+      unten.add(e.pointerId);
+      // Tippen nur mit einem Finger bzw. der linken Maustaste
+      start = unten.size === 1 && (e.pointerType !== "mouse" || (e.button === 0 && !e.ctrlKey && !e.shiftKey && !e.metaKey))
+        ? { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId } : null;
+    });
+    el.addEventListener("pointercancel", (e) => { unten.delete(e.pointerId); start = null; });
     el.addEventListener("pointerup", (e) => {
+      unten.delete(e.pointerId);
       if (!start || e.pointerId !== start.id) return;
       const weg = Math.hypot(e.clientX - start.x, e.clientY - start.y);
       const dauer = performance.now() - start.t;
@@ -784,34 +804,25 @@ export class Globus {
     this.ring.matrix.copy(this.uMat4);
     this.ring.matrixWorldNeedsUpdate = true;
 
-    // Kameraflug und Folgen
-    if (this.flug) {
-      const f = this.flug;
-      let k = Math.min(1, (performance.now() - f.t0) / f.dauer);
-      const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-      const dir = slerp(f.von, f.nach, e);
-      let d;
-      if (f.log) { const e2 = 1 - Math.pow(1 - k, 2.4); d = f.d0 * Math.pow(f.d1 / f.d0, e2); }
-      else d = f.d0 + (f.d1 - f.d0) * e;
-      this.kamera.position.copy(dir.multiplyScalar(d));
-      if (k >= 1) this.flug = null;
-      this.letzteAktion = performance.now();
-    } else if (this.folgen && this.auswahl >= 0) {
-      const p = this.satPosition(this.auswahl, new THREE.Vector3());
+    // Folgen: Blickpunkt wandert mit dem Satelliten, die Kamera bleibt über ihm
+    const st = this.steuerung;
+    if (!st.flug && this.folgen && this.auswahl >= 0) {
+      const p = this.satPosition(this.auswahl, this._folgeV || (this._folgeV = new THREE.Vector3()));
       if (p) {
-        const d = Math.max(this.kamera.position.length(), p.length() + 0.35);
-        const ziel = p.clone().normalize();
-        const jetztR = this.kamera.position.clone().normalize();
-        this.kamera.position.copy(jetztR.lerp(ziel, 0.12).normalize().multiplyScalar(d));
+        const r = p.length();
+        const pose = st.pose;
+        const ll = latLonVon(basis(pose.lat, pose.lon).U.lerp(p.divideScalar(r), 0.12).normalize());
+        pose.lat = ll.lat; pose.lon = ll.lon;
+        pose.abstand = Math.max(pose.abstand, r - 1 + 0.35);
+        st.anwenden();
+        this.letzteAktion = performance.now();
       }
     }
+    if (st.update(jetzt)) this.letzteAktion = performance.now();
     this._versatzSchritt();
     const abstand = this.kamera.position.length();
-    this.steuerung.rotateSpeed = Math.min(0.55, Math.max(0.04, (abstand - 1) * 0.32));
-    this.steuerung.zoomSpeed = abstand < 1.6 ? 0.5 : 0.9;
     // nah dran etwas größere Punkte
     this.satUni.uZoom.value = Math.min(1.45, Math.max(0.9, Math.pow(3.2 / abstand, 0.45)));
-    this.steuerung.update();
 
     this._sichtlinien();
     this.renderer.render(this.szene, this.kamera);
@@ -871,12 +882,4 @@ export class Globus {
     }
     for (let j = k; j < this.namenEl.length; j++) if (this.namenEl[j].style.display !== "none") this.namenEl[j].style.display = "none";
   }
-}
-
-function slerp(a, b, t) {
-  const d = Math.min(1, Math.max(-1, a.dot(b)));
-  const w = Math.acos(d);
-  if (w < 1e-4) return a.clone().lerp(b, t).normalize();
-  const s = Math.sin(w);
-  return a.clone().multiplyScalar(Math.sin((1 - t) * w) / s).add(b.clone().multiplyScalar(Math.sin(t * w) / s));
 }

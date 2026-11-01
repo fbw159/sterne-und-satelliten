@@ -206,3 +206,134 @@ export function anzeigeName(name) {
   if (name === "HST") return "Hubble (HST)";
   return name;
 }
+
+// Betreiber (Firma oder Behörde) und Zweck – nach dem Namen; sonst aus dem Katalog (Land/Organisation)
+const BETREIBER = [
+  [/^STARLINK/, "SpaceX (USA)", "Internet aus dem All"],
+  [/^ONEWEB/, "Eutelsat OneWeb (Großbritannien/Frankreich)", "Internet aus dem All"],
+  [/^(KUIPER|AMAZON)/, "Amazon (USA)", "Internet aus dem All (Amazon Leo, früher Projekt Kuiper)"],
+  [/^QIANFAN/, "Shanghai Spacesail Technologies (China)", "Internet aus dem All"],
+  [/^(HULIANWANG|GUOWANG)/, "China SatNet (China)", "Internet aus dem All"],
+  [/^RASSVET/, "Bureau 1440 (Russland)", "Internet aus dem All"],
+  [/^IRIDIUM/, "Iridium Communications (USA)", "Satellitentelefone und Datenfunk, weltweit"],
+  [/^GLOBALSTAR/, "Globalstar (USA)", "Satellitentelefone und Notruf-Nachrichten"],
+  [/^ORBCOMM/, "ORBCOMM (USA)", "kleine Datenmengen, z. B. Standorte von Containern und Schiffen"],
+  [/^(SPACEMOBILE|BLUEBIRD)/, "AST SpaceMobile (USA)", "Handy-Netz direkt aus dem All"],
+  [/^LYNK/, "Lynk Global (USA)", "Handy-Netz direkt aus dem All"],
+  [/^(NAVSTAR|GPS )/, "US Space Force (USA)", "Navigation (GPS)"],
+  [/GALILEO/, "EU (EUSPA) mit der ESA", "Navigation (Galileo, das europäische GPS)"],
+  [/GLONASS/, "Roskosmos (Russland)", "Navigation (GLONASS, das russische GPS)"],
+  [/^BEIDOU/, "China (CNSA)", "Navigation (BeiDou, das chinesische GPS)"],
+  [/^QZS/, "Japan", "Navigation (QZSS, ergänzt GPS über Japan)"],
+  [/^(IRNSS|NVS-)/, "ISRO (Indien)", "Navigation (NavIC, das indische GPS)"],
+  [/^CENTISPACE/, "Future Navigation (China)", "verbessert die Satellitennavigation aus niedriger Bahn"],
+  [/^GEESAT/, "Geespace, eine Tochter des Autobauers Geely (China)", "Ortung und Datenfunk für vernetzte Fahrzeuge"],
+  [/^SENTINEL/, "ESA für Copernicus, das Erdbeobachtungsprogramm der EU", "Erdbeobachtung: Land, Meere, Eis und Luft"],
+  [/^(METOP|METEOSAT|MTG-)/, "EUMETSAT (Europa)", "Wetterbeobachtung für die Vorhersage"],
+  [/^(NOAA |GOES |JPSS|SUOMI)/, "NOAA, Wetter- und Ozeanbehörde (USA)", "Wetterbeobachtung"],
+  [/^FENGYUN/, "Chinesischer Wetterdienst (CMA)", "Wetterbeobachtung"],
+  [/^METEOR-M/, "Russischer Wetterdienst (Roshydromet)", "Wetterbeobachtung"],
+  [/^HIMAWARI/, "Japanischer Wetterdienst (JMA)", "Wetterbeobachtung"],
+  [/^HAIYANG/, "China", "Beobachtung der Meere"],
+  [/^LANDSAT/, "NASA und USGS (USA)", "Fotos der Landflächen – seit 1972"],
+  [/^(TERRA|AQUA|AURA)$/, "NASA (USA)", "Klima- und Erdforschung"],
+  [/^(FLOCK|SKYSAT|PELICAN|SUPERDOVE)/, "Planet Labs (USA)", "Fotos der Erde, fast täglich von jedem Ort"],
+  [/^LEMUR/, "Spire Global (USA)", "Wetterdaten und Positionsmeldungen von Schiffen und Flugzeugen"],
+  [/^ICEYE/, "ICEYE (Finnland)", "Radarbilder der Erde – auch durch Wolken und bei Nacht"],
+  [/^CAPELLA/, "Capella Space (USA)", "Radarbilder der Erde – auch durch Wolken und bei Nacht"],
+  [/^STRIX/, "Synspective (Japan)", "Radarbilder der Erde"],
+  [/^QPS/, "iQPS (Japan)", "Radarbilder der Erde"],
+  [/^(WORLDVIEW|GEOEYE)/, "Maxar (USA)", "sehr scharfe Fotos der Erde"],
+  [/^GLOBAL-/, "BlackSky (USA)", "Fotos der Erde, mehrmals am Tag"],
+  [/^NUSAT/, "Satellogic (Argentinien/Uruguay)", "Fotos der Erde"],
+  [/^GRUS/, "Axelspace (Japan)", "Fotos der Erde"],
+  [/^JILIN/, "Chang Guang Satellite (China)", "Fotos und Videos der Erde"],
+  [/^GAOFEN/, "China (CNSA)", "hochauflösende Erdbeobachtung"],
+  [/^SUPERVIEW/, "China Siwei (China)", "Fotos der Erde"],
+  [/^GHGSAT/, "GHGSat (Kanada)", "spürt Methan-Austritte auf"],
+  [/^IRIDE/, "Italien (ASI) mit der ESA", "Erdbeobachtung"],
+  [/^HAWK/, "HawkEye 360 (USA)", "ortet Funksignale auf der Erde"],
+  [/^(TIANQI)/, "Guodian Gaoke (China)", "Datenfunk für Geräte (Internet der Dinge)"],
+  [/^KINEIS/, "Kinéis (Frankreich)", "Datenfunk für Geräte (Internet der Dinge)"],
+  [/^GONETS/, "Gonets (Russland)", "Datenfunk"],
+  [/^(SES|O3B|ASTRA)/, "SES (Luxemburg)", "Fernsehen, Internet und Datenverbindungen"],
+  [/^INTELSAT/, "Intelsat (Luxemburg/USA)", "Fernsehen und Datenverbindungen"],
+  [/^EUTELSAT/, "Eutelsat (Frankreich)", "Fernsehen und Datenverbindungen"],
+  [/^INMARSAT/, "Inmarsat (heute Viasat)", "Verbindungen für Schiffe und Flugzeuge"],
+  [/^VIASAT/, "Viasat (USA)", "Internet aus dem All"],
+  [/^ECHOSTAR/, "EchoStar (USA)", "Fernsehen und Datenverbindungen"],
+  [/^ZHONGXING/, "China Satcom (China)", "Fernsehen und Datenverbindungen"],
+  [/^EXPRESS/, "RSCC (Russland)", "Fernsehen und Datenverbindungen"],
+  [/^TDRS/, "NASA (USA)", "leitet Funk zwischen Raumschiffen (z. B. der ISS) und der Erde weiter"],
+  [/^HST$/, "NASA und ESA", "Bilder von Sternen, Nebeln und fernen Galaxien"],
+  [/^SWARM [ABC]$/, "ESA", "vermisst das Magnetfeld der Erde"],
+  [/^ISS \(/, "NASA, Roskosmos, ESA, JAXA und CSA", "Wohnen und Forschen im All"],
+  [/^(CSS|TIANHE|WENTIAN|MENGTIAN|TIANGONG)/, "China (CMSA, bemannte Raumfahrt)", "Wohnen und Forschen im All"],
+  [/^SOYUZ/, "Roskosmos (Russland)", "bringt Raumfahrer zur ISS und zurück"],
+  [/^PROGRESS/, "Roskosmos (Russland)", "bringt Treibstoff, Wasser und Vorräte zur ISS"],
+  [/^CREW DRAGON/, "SpaceX (USA), im Auftrag der NASA", "bringt Astronauten zur ISS und zurück"],
+  [/^DRAGON/, "SpaceX (USA), im Auftrag der NASA", "bringt Fracht zur ISS und zurück zur Erde"],
+  [/^CYGNUS/, "Northrop Grumman (USA), im Auftrag der NASA", "bringt Fracht zur ISS"],
+  [/^(SHENZHOU|SZ-)/, "China (CMSA, bemannte Raumfahrt)", "bringt Raumfahrer zur Station Tiangong und zurück"],
+  [/^TIANZHOU/, "China (CMSA, bemannte Raumfahrt)", "bringt Treibstoff und Vorräte zur Station Tiangong"],
+  [/^ION /, "D-Orbit (Italien)", "Raumschlepper: setzt Kleinsatelliten auf ihren Bahnen aus"],
+  [/^YAOGAN/, "Chinesisches Militär", "Aufklärung"],
+  [/^(SHIYAN|SJ-|SHIJIAN)/, "China", "Erprobung neuer Technik, oft für das Militär"],
+  [/^TJS/, "China", "Erprobung von Nachrichtentechnik, vermutlich militärisch"],
+  [/^USA /, "US-Militär oder Aufklärungsdienst NRO (USA)", "geheim – meist Aufklärung oder Frühwarnung"],
+  [/^WGS/, "US-Militär (USA)", "militärische Nachrichtenverbindungen"],
+  [/^SDA/, "Space Development Agency (USA)", "militärisches Datennetz und Raketen-Frühwarnung"],
+  [/^COSMOS/, "meist das russische Verteidigungsministerium", "meist militärisch"],
+  [/^FALCON 9/, "SpaceX (USA)", null],
+  [/^CZ-/, "China (Rakete „Langer Marsch“)", null],
+  [/^SL-/, "Sowjetunion bzw. Russland", null],
+  [/^ARIANE/, "Arianespace (Europa)", null],
+  [/^H-2A/, "Japan (Mitsubishi Heavy Industries)", null],
+  [/^(ATLAS|DELTA)/, "USA", null],
+  [/^(PSLV|GSLV)/, "ISRO (Indien)", null],
+  [/^GSAT/, "ISRO (Indien)", "Fernsehen und Datenverbindungen"],
+];
+
+const ZWECK_KAT = {
+  iss: "Wohnen und Forschen im All",
+  station: "Raumfahrt mit Menschen: Station, Raumschiff oder Frachter",
+  starlink: "Internet aus dem All",
+  internet: "Internet aus dem All",
+  navi: "Navigation (Ortung per Satellit)",
+  wetter: "Wetterbeobachtung",
+  erde: "Erdbeobachtung",
+  wissen: "Forschung oder Erprobung neuer Technik",
+  militaer: "militärisch, z. B. Aufklärung, Frühwarnung oder Funk",
+  funk: "Kommunikation: Fernsehen, Telefon oder Daten",
+  stufe: "keine mehr – eine ausgebrannte Raketenstufe",
+  sonst: "",
+};
+
+/** { firma, zweck } für einen Satelliten (Name in Großbuchstaben, Kategorie, Katalogangaben) */
+export function betreiber(name, kat, info) {
+  const n = (name || "").toUpperCase();
+  let firma = null, zweck = null;
+  for (const [rx, f, z] of BETREIBER) {
+    if (rx.test(n)) { firma = f; zweck = z; break; }
+  }
+  if (!firma && info && info[2]) firma = LAND[info[2]] || info[2];
+  if (!zweck) {
+    if (info && info[0] === "DEB") zweck = "keine – ein Trümmerteil";
+    else if (info && info[0] === "R/B") zweck = ZWECK_KAT.stufe;
+    else zweck = ZWECK_KAT[kat] || (info && info[0] === "PAY" ? "Satellit – Aufgabe nicht bekannt" : "");
+  }
+  return { firma, zweck };
+}
+
+/** Was für ein Objekt ist das? (Satellit, Raumstation, Raumschiff, Raketenstufe, Trümmerteil …) */
+export function artWort(name, kat, typ) {
+  const n = (name || "").toUpperCase();
+  if (typ === "R/B" || / R\/B$/.test(n) || kat === "stufe") return "Raketenstufe";
+  if (typ === "DEB" || / DEB$/.test(n)) return "Trümmerteil";
+  if (kat === "iss" || n === "CSS (TIANHE)") return "Raumstation";
+  if (/^(SOYUZ|CREW DRAGON|SHENZHOU|SZ-\d|STARLINER)/.test(n)) return "Raumschiff";
+  if (/^(PROGRESS|DRAGON|CYGNUS|TIANZHOU|HTV)/.test(n)) return "Raumfrachter";
+  if (/^(ISS|CSS) \(/.test(n)) return "Modul einer Raumstation";
+  if (n === "HST") return "Weltraumteleskop";
+  return "Satellit";
+}

@@ -96,8 +96,9 @@ function lichtZeit(kmEntf) {
   return `${zahl(s / 3600, 1)} Stunden`;
 }
 
-function knoepfe(o, mitSteckbrief) {
-  return `<div class="info-knoepfe">${o.hinfuehren !== false ? '<button class="knopf" data-info="hin"><svg><use href="#i-pfeil"/></svg>Hinführen</button>' : ""}${mitSteckbrief ? '<button class="knopf" data-info="steckbrief">Steckbrief</button>' : ""}</div>`;
+function knoepfe(o, mitSteckbrief, opt = {}) {
+  const hin = opt.hinText || "Hinführen";
+  return `<div class="info-knoepfe">${o.hinfuehren !== false ? `<button class="knopf" data-info="hin"><svg><use href="#i-${opt.hinText ? "handy" : "pfeil"}"/></svg>${esc(hin)}</button>` : ""}${mitSteckbrief ? '<button class="knopf" data-info="steckbrief">Alles über ihn</button>' : ""}</div>`;
 }
 
 /**
@@ -107,10 +108,12 @@ function knoepfe(o, mitSteckbrief) {
  *  mond:   { m (mondDetails), sb, au }
  *  sonne:  { az, el }
  *  sternbild: { sb, hellster (Zeile) }
- *  sat:    { name, kat, az, el, r, mag, sichtbar, licht, iss }
+ *  sat:    { name, kat, az, el, r, mag, sichtbar, licht, iss, was, zweck, firma }
+ * opt = { hinText: Beschriftung statt „Hinführen“, klappen: Knopf zum Kleinklappen (Infobox) }
  */
 export function infoHtml(o, opt = {}) {
-  const kopf = (titel, unter) => `<div class="info-kopf"><div><h3>${esc(titel)}</h3>${unter ? `<p>${unter}</p>` : ""}</div><button class="rund klein" data-info="zu" aria-label="Schließen"><svg><use href="#i-zu"/></svg></button></div>`;
+  const klappen = opt.klappen ? '<button class="rund klein knopf-klappen" data-klappen aria-label="Infobox klein- oder großklappen" title="klein-/großklappen"><svg><use href="#i-klappen"/></svg></button>' : "";
+  const kopf = (titel, unter) => `<div class="info-kopf"><div><h3>${esc(titel)}</h3>${unter ? `<p>${unter}</p>` : ""}</div><div class="kopf-knopfe">${klappen}<button class="rund klein" data-info="zu" aria-label="Schließen"><svg><use href="#i-zu"/></svg></button></div></div>`;
   let h = "";
   if (o.art === "stern") {
     const z = o.z;
@@ -128,7 +131,7 @@ export function infoHtml(o, opt = {}) {
       h += zeile("Entfernung", `${unsicher ? "etwa " : ""}${zahl(lj, lj < 20 ? 1 : 0)} Lichtjahre`);
       h += `</table><p class="info-text">${lj < 1500 ? `Das Licht, das jetzt bei dir ankommt, ist ${jahr > 0 ? `im Jahr ${jahr}` : `vor ${zahl(lj)} Jahren`} dort losgeflogen.` : `Das Licht, das jetzt bei dir ankommt, war ${unsicher ? "etwa " : ""}${zahl(lj)} Jahre unterwegs.`}</p>`;
     } else h += "</table>";
-    h += knoepfe(o);
+    h += knoepfe(o, false, opt);
   } else if (o.art === "planet") {
     const p = o.p;
     const kmE = p.dist * 149597870.7;
@@ -141,7 +144,7 @@ export function infoHtml(o, opt = {}) {
     if (p.id === "Venus" || p.id === "Mercury" || p.id === "Mars") h += zeile("Beleuchtet", `zu ${zahl(p.anteil * 100)} %`);
     if (p.id === "Saturn" && p.ring != null) h += zeile("Ringe", `um ${zahl(Math.abs(p.ring), 1)}° geöffnet${Math.abs(p.ring) < 5 ? " – fast von der Kante gesehen" : ""}`);
     h += `</table><p class="info-text">${PLANET_TEXT[p.id] || ""}</p>`;
-    h += knoepfe(o);
+    h += knoepfe(o, false, opt);
   } else if (o.art === "mond") {
     const m = o.m;
     h += kopf("Mond", `${phasenName(m.phase)}, zu ${zahl(m.anteil * 100)} % beleuchtet${o.sb ? ` · im Sternbild ${esc(o.sb.de)}` : ""}`);
@@ -150,7 +153,7 @@ export function infoHtml(o, opt = {}) {
     h += zeile("Entfernung", `${km(Math.round(m.distKm / 100) * 100)}`);
     h += zeile("Licht braucht", lichtZeit(m.distKm));
     h += `</table><p class="info-text">Der Mond umkreist die Erde in gut 27 Tagen und dreht uns dabei immer dieselbe Seite zu. Von Neumond zu Neumond dauert es 29,5 Tage.</p>`;
-    h += knoepfe(o);
+    h += knoepfe(o, false, opt);
   } else if (o.art === "sonne") {
     h += kopf("Sonne", "unser Stern");
     h += `<p class="info-text"><b>Nie direkt in die Sonne schauen – erst recht nicht mit Fernglas oder Kamera!</b> Sie ist 150 Millionen km entfernt, ihr Licht braucht gut 8 Minuten bis zu uns.</p>`;
@@ -162,15 +165,18 @@ export function infoHtml(o, opt = {}) {
     let t = SB_TEXT[sb.k] || "";
     if (TIERKREIS.has(sb.k)) t = (t ? t + " " : "") + "Sonne, Mond und Planeten ziehen durch die Sternbilder des Tierkreises.";
     if (t) h += `<p class="info-text">${t}</p>`;
-    h += knoepfe(o);
+    h += knoepfe(o, false, opt);
   } else if (o.art === "sat") {
     h += kopf(o.name, `${esc(o.kat || "Satellit")}`);
     h += `<table class="tabelle">`;
+    if (o.was) h += zeile("Was ist das?", esc(o.was));
+    if (o.zweck && o.was !== "Raketenstufe" && o.was !== "Trümmerteil") h += zeile("Wofür?", esc(o.zweck));
+    if (o.firma) h += zeile(o.was === "Raketenstufe" ? "Rakete von" : o.was === "Trümmerteil" ? "Herkunft" : "Betreiber", esc(o.firma));
     h += zeile("Wo", richtungText(o.az, o.el));
     h += zeile("Zustand", o.sichtbar ? `<b class="gelb">jetzt mit bloßem Auge zu sehen</b>${o.mag != null ? `, ${zahl(o.mag, 1)} mag` : ""}` : o.licht ? "von der Sonne angestrahlt, aber gerade nicht gut zu sehen" : "im Erdschatten – unsichtbar");
     if (o.r) h += zeile("Entfernung", km(o.r));
     h += "</table>";
-    h += knoepfe(o, true);
+    h += knoepfe(o, true, opt);
   }
   return h;
 }

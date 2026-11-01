@@ -170,6 +170,9 @@ const RICHTUNGEN = ["N", "NNO", "NO", "ONO", "O", "OSO", "SO", "SSO", "S", "SSW"
 export const richtung = (az) => RICHTUNGEN[Math.round(((az % 360) + 360) % 360 / 22.5) % 16];
 const RICHTUNG_LANG = { N: "Norden", O: "Osten", S: "Süden", W: "Westen" };
 export const himmelsrichtung = (az) => RICHTUNG_LANG[["N", "O", "S", "W"][Math.round(((az % 360) + 360) % 360 / 90) % 4]];
+const RICHTUNG8 = ["Norden", "Nordosten", "Osten", "Südosten", "Süden", "Südwesten", "Westen", "Nordwesten"];
+/** Himmelsrichtung in Worten (8 Richtungen) */
+export const richtungLang = (az) => RICHTUNG8[Math.round(((az % 360) + 360) % 360 / 45) % 8];
 
 /** Präzession J2000 -> Datum (IAU 1976), für Sternörter. Gibt RA/Dec in Grad zurück. */
 export function praezession(raDeg, decDeg, ms) {

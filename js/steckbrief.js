@@ -1,8 +1,8 @@
-// Steckbrief eines Satelliten: Kopf, Live-Werte, Überflüge, Wissenswertes, Bahn, Verweise
+// Infobox eines Satelliten: was er ist, wofür, Betreiber, Live-Werte, Überflüge, Wissenswertes, Bahn, Verweise
 import * as A from "./astro.js";
 import { KAT } from "./globus.js";
-import { LAND, STARTPLATZ, ART, BETRIEB, KAT_TEXT, bekannt, anzeigeName } from "./texte.js";
-import { esc, zahl, km, grad, mag, uhr, tag, dauer, datum, relativ, alterText, helligkeitWort } from "./ui.js";
+import { LAND, STARTPLATZ, ART, BETRIEB, KAT_TEXT, bekannt, anzeigeName, betreiber, artWort } from "./texte.js";
+import { esc, zahl, km, grad, mag, uhr, tag, datum, relativ, alterText, helligkeitWort } from "./ui.js";
 import { ortName } from "./orte.js";
 
 const LICHT_C = 299792.458; // km/s
@@ -50,6 +50,15 @@ function wikiUrl(begriff) {
   return `https://de.wikipedia.org/w/index.php?search=${encodeURIComponent(begriff)}&go=Artikel`;
 }
 
+function jahreText(ms, jetzt) {
+  const j = (jetzt - ms) / (365.25 * 86400000);
+  if (j < 0.08) return `seit ${Math.max(1, Math.round(j * 365.25))} Tagen`;
+  if (j < 1) return `seit ${Math.round(j * 12)} Monaten`;
+  if (j < 1.5) return "seit gut einem Jahr";
+  return `seit ${zahl(Math.floor(j))} Jahren`;
+}
+
+/** Infobox eines Satelliten. c = { sat, info (Katalog oder null), jetzt } */
 export function steckbriefHtml(c) {
   const s = c.sat;
   const id = s[0], name = s[1], cospar = s[2], epoche = s[3] * 1000, n = s[4], e = s[5], incl = s[6], kat = s[14], flags = s[15];
@@ -59,13 +68,47 @@ export function steckbriefHtml(c) {
   const titel = anzeigeName(name);
   const info = c.info;
   const art = A.bahnArt(n, e, incl, h.hp, h.ha);
+  const P = h.periode;
+  const typ = info ? info[0] : null;
+  const was = artWort(name, kat, typ);
+  const { firma, zweck } = betreiber(name, kat, info);
 
   let html = `<div class="sb-kopf">
-    <button class="rund" data-aktion="zurueck" aria-label="Zurück"><svg><use href="#i-zurueck"/></svg></button>
-    <div class="sb-titel"><h2>${esc(titel)}${id === 25544 ? '<span class="etikett e-iss">ISS</span>' : ""}</h2>
-    <p class="sb-unter"><i class="punkt" style="background:${katInfo.farbe}"></i>${esc(kat === "iss" ? "Raumstation" : katInfo.name)} · Nr. ${id}${cospar ? " · " + esc(cospar) : ""}</p></div>
+    <div class="sb-titel"><h2>${esc(titel)}${id === 25544 && titel !== "ISS" ? '<span class="etikett e-iss">ISS</span>' : ""}</h2>
+    <p class="sb-unter"><i class="punkt" style="background:${katInfo.farbe}"></i>${esc(kat === "iss" ? "Raumstation" : katInfo.name)} · Nr. ${id}</p></div>
+    <div class="kopf-knopfe">
+      <button class="rund knopf-klappen" data-klappen aria-label="Infobox klein- oder großklappen" title="klein-/großklappen"><svg><use href="#i-klappen"/></svg></button>
+      <button class="rund" data-aktion="zu" aria-label="Schließen" title="Schließen"><svg><use href="#i-zu"/></svg></button>
+    </div>
   </div>
-  <div class="zustand" data-wert="zustand"><svg><use href="#i-auge"/></svg><span>…</span></div>
+  <div class="zustand" data-wert="zustand"><svg><use href="#i-auge"/></svg><span>…</span></div>`;
+
+  // Was ist das? Wofür? Wer betreibt ihn? Seit wann im All?
+  const zeilen = [];
+  const status = info && typ === "PAY" && info[1] && BETRIEB[info[1]] && info[1] !== "?" ? BETRIEB[info[1]] : "";
+  zeilen.push(["Was ist das?", `${esc(was)}${status ? ` <small>(${esc(status)})</small>` : ""}`]);
+  const ohneZweck = was === "Raketenstufe" || was === "Trümmerteil";
+  if (zweck && !ohneZweck) zeilen.push(["Wofür?", esc(zweck)]);
+  if (firma) zeilen.push([was === "Raketenstufe" ? "Rakete von" : was === "Trümmerteil" ? "Herkunft" : "Betreiber", esc(firma)]);
+  const land = info && info[2] ? landText(info[2]) : "";
+  if (land && firma && !firma.includes(land) && was !== "Trümmerteil" && !["TBD", "ISS"].includes(info[2])) zeilen.push(["Land", esc(land)]);
+  if (info && info[3]) {
+    const start = Date.parse(info[3] + "T12:00:00Z");
+    zeilen.push(["Im All", `${jahreText(start, c.jetzt)} <small>(Start ${esc(datum(start))})</small>`]);
+  }
+  if (info && info[4]) zeilen.push(["Gestartet in", esc(STARTPLATZ[info[4]] || info[4])]);
+  zeilen.push(["Bahn", `${P < 225 ? `einmal um die Erde in ${zahl(P)} min` : art === "geostationär" ? "steht scheinbar still (geostationär)" : `einmal um die Erde in ${P < 1440 ? zahl(P / 60, 1) + " Std." : zahl(P / 1440, 1) + " Tagen"}`}, ${Math.abs(h.ha - h.hp) < 25 ? "in " + km((h.ha + h.hp) / 2) : "in " + km(h.hp) + " bis " + km(h.ha)} Höhe`]);
+  if (!info) zeilen.push(["", '<small data-wert="info-laedt">Katalogangaben werden geladen …</small>']);
+  html += `<dl class="kurzinfo">${zeilen.map(([a, b2]) => `<dt>${a}</dt><dd>${b2}</dd>`).join("")}</dl>`;
+
+  html += `<div class="knopf-reihe">
+    <button class="knopf-gross haupt" data-aktion="zeigen"><svg><use href="#i-handy"/></svg>Zeigen</button>
+    <button class="knopf-gross" data-aktion="folgen" aria-pressed="false"><svg><use href="#i-folgen"/></svg>Folgen</button>
+    <button class="knopf-gross" data-aktion="himmel"><svg><use href="#i-bahn"/></svg>Am Himmel</button>
+  </div>`;
+  if (id === 25544 || id === 48274) html += `<div data-wert="angedockt"></div>`;
+
+  html += `<h3 class="abschnitt">Gerade jetzt</h3>
   <div class="raster">
     <div><small>Richtung</small><span data-wert="richtung">–</span></div>
     <div><small>Höhe am Himmel</small><span data-wert="el">–</span></div>
@@ -75,20 +118,12 @@ export function steckbriefHtml(c) {
     <div><small>Tempo</small><span data-wert="tempo">–</span></div>
     <div><small>Gerade über</small><span data-wert="ueber">–</span></div>
     <div><small>Sonnenlicht</small><span data-wert="licht">–</span></div>
-  </div>
-  <div class="knopf-reihe">
-    <button class="knopf-gross haupt" data-aktion="zeigen"><svg><use href="#i-handy"/></svg>Zeigen</button>
-    <button class="knopf-gross" data-aktion="folgen" aria-pressed="false"><svg><use href="#i-folgen"/></svg>Folgen</button>
-    <button class="knopf-gross" data-aktion="himmel"><svg><use href="#i-bahn"/></svg>Am Himmel</button>
   </div>`;
-
-  if (id === 25544 || id === 48274) html += `<div data-wert="angedockt"></div>`;
 
   html += `<h3 class="abschnitt">Nächste Überflüge bei dir</h3><ol class="pass-liste" data-wert="ueberfluege"><li class="leer">wird berechnet …</li></ol>`;
 
   // Wissenswertes
   const fakten = [];
-  const P = h.periode;
   if (art === "geostationär") {
     fakten.push("Er umkreist die Erde genau einmal pro Tag – so schnell, wie sie sich dreht. Deshalb scheint er von der Erde aus still am Himmel zu stehen.");
   } else if (P < 225) {
@@ -120,39 +155,33 @@ export function steckbriefHtml(c) {
   html += `<h3 class="abschnitt">Wissenswert</h3><div class="texte">${teile.map((t) => `<p>${esc(t)}</p>`).join("")}<ul class="fakten">${fakten.map((f) => `<li>${f}</li>`).join("")}</ul></div>`;
   html += `<div class="wiki" data-wert="wiki" hidden></div>`;
 
-  // Steckbrief
-  html += `<h3 class="abschnitt">Steckbrief</h3><table class="tabelle">`;
-  if (info) {
-    html += `<tr><td>Art</td><td>${esc(kat === "iss" || (kat === "station" && info[0] === "PAY") ? "Raumstation / Raumschiff" : ART[info[0]] || info[0] || "–")}</td></tr>`;
-    html += `<tr><td>Land / Betreiber</td><td>${esc(landText(info[2]))}</td></tr>`;
-    if (info[3]) html += `<tr><td>Start</td><td>${esc(datum(Date.parse(info[3] + "T12:00:00Z")))}</td></tr>`;
-    if (info[4]) html += `<tr><td>Startplatz</td><td>${esc(STARTPLATZ[info[4]] || info[4])}</td></tr>`;
-    html += `<tr><td>Zustand</td><td>${esc(BETRIEB[info[1]] || "unbekannt")}</td></tr>`;
-    if (info[5]) html += `<tr><td>Radar-Querschnitt</td><td>${zahl(info[5], info[5] < 1 ? 2 : 1)} m²</td></tr>`;
-  } else {
-    html += `<tr><td colspan="2" class="leer" data-wert="info-laedt">Katalogangaben werden geladen …</td></tr>`;
-  }
+  // Einzelheiten zum Aufklappen: Katalog, Bahn, Verweise
   const helligkeitQuelle = flags & 4 ? "beobachtet, nach M. McCants" : "geschätzt";
-  html += `<tr><td>Grundhelligkeit</td><td>${s[16] != null ? zahl(s[16], 1) + " mag" : "–"} <small>(in 1000 km Entfernung, ${helligkeitQuelle})</small></td></tr></table>`;
-
-  // Bahn
-  html += `<h3 class="abschnitt">Umlaufbahn</h3><table class="tabelle">
+  let kat2 = `<tr><td>Katalognummer</td><td>${id}${cospar ? ` · ${esc(cospar)}` : ""}</td></tr>`;
+  if (info) {
+    kat2 += `<tr><td>Art im Katalog</td><td>${esc(ART[info[0]] || info[0] || "–")}</td></tr>`;
+    kat2 += `<tr><td>Zustand</td><td>${esc(BETRIEB[info[1]] || "unbekannt")}</td></tr>`;
+    if (info[5]) kat2 += `<tr><td>Radar-Querschnitt</td><td>${zahl(info[5], info[5] < 1 ? 2 : 1)} m²</td></tr>`;
+  }
+  kat2 += `<tr><td>Grundhelligkeit</td><td>${s[16] != null ? zahl(s[16], 1) + " mag" : "–"} <small>(in 1000 km Entfernung, ${helligkeitQuelle})</small></td></tr>`;
+  const wiki = b && b.wiki ? b.wiki : null;
+  const suche = (b && b.suche) || name;
+  html += `<details class="mehr-details"><summary>Bahn, Katalog und Verweise</summary>
+  <h3 class="abschnitt">Umlaufbahn</h3><table class="tabelle">
     <tr><td>Bahnform</td><td>${esc(art)}</td></tr>
     <tr><td>Umlaufzeit</td><td>${P < 120 ? zahl(P, 1) + " min" : P < 2880 ? zahl(P / 60, 2) + " Std." : zahl(P / 1440, 2) + " Tage"}</td></tr>
     <tr><td>Höhe</td><td>${Math.abs(h.ha - h.hp) < 25 ? "etwa " + km((h.ha + h.hp) / 2) : km(h.hp) + " bis " + km(h.ha)}</td></tr>
     <tr><td>Bahnneigung</td><td>${grad(incl, 1)}${incl < 90 ? ` – überfliegt Orte bis ${grad(incl)} nördlicher und südlicher Breite` : incl < 180 ? " – rückläufige Bahn, überfliegt fast alle Orte" : ""}</td></tr>
     <tr><td>Exzentrizität</td><td>${zahl(e, 4)}${e < 0.01 ? " (fast kreisrund)" : ""}</td></tr>
     <tr><td>Bahndaten vom</td><td>${datum(epoche)}, ${uhr(epoche)} Uhr (vor ${alterText(epoche, c.jetzt)})</td></tr>
-  </table>`;
-
-  const wiki = b && b.wiki ? b.wiki : null;
-  const suche = (b && b.suche) || name;
-  html += `<div class="verweise">
+  </table>
+  <h3 class="abschnitt">Katalog</h3><table class="tabelle">${kat2}</table>
+  <div class="verweise">
     ${wiki ? `<a href="${wikiUrl(wiki)}" target="_blank" rel="noopener">Wikipedia</a>` : `<a href="${wikiUrl(suche)}" target="_blank" rel="noopener">Wikipedia-Suche</a>`}
     <a href="https://www.n2yo.com/satellite/?s=${id}" target="_blank" rel="noopener">N2YO</a>
     <a href="https://www.heavens-above.com/satinfo.aspx?satid=${id}" target="_blank" rel="noopener">Heavens-Above</a>
     <a href="https://celestrak.org/satcat/table-satcat.php?CATNR=${id}" target="_blank" rel="noopener">CelesTrak</a>
-  </div>`;
+  </div></details>`;
   return html;
 }
 
