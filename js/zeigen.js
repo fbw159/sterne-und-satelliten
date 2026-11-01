@@ -177,8 +177,14 @@ export class Zeigen {
 
   /** Blick (ohne Sensoren) sanft auf ein Objekt drehen */
   _dreheZu(o) {
-    const d = this._objekt(o);
-    if (!d) return;
+    // Richtungen erst frisch rechnen: vor dem ersten Bild sind sie noch leer (das ergäbe „Norden am Horizont“)
+    const ort = this.opt.beobachter();
+    if (ort && this.HD.bereit) this.HD.aktualisieren(ort.lat, ort.lon, Date.now());
+    if (ort && o.art === "planet") this.HD.planetenAktualisieren(ort.lat, ort.lon, Date.now());
+    const d = ort ? this._objekt(o) : null;
+    // Daten noch nicht da (Sterne, Planeten, Satelliten): später nachholen, siehe _zeichnen()
+    if (!d) { this._drehenSpaeter = o; return; }
+    this._drehenSpaeter = null;
     const el = Math.max(-20, Math.min(85, d.el));
     this._blickFlug = { t0: performance.now(), dauer: 900, az0: this.blick.az, el0: this.blick.el, dAz: wrap180(d.az - this.blick.az), dEl: el - this.blick.el };
   }
@@ -325,6 +331,7 @@ export class Zeigen {
     const abstand = () => { const [a, b] = [...zeiger.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
     c.addEventListener("pointerdown", (e) => {
       this._blickFlug = null;
+      this._drehenSpaeter = null;
       zeiger.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (zeiger.size === 1) start = { x: e.clientX, y: e.clientY, t: performance.now(), az: this.blick.az, el: this.blick.el, bewegt: false };
       else if (zeiger.size === 2) { pinch = { d: abstand(), zoom: this.zoom }; start = null; }
@@ -705,6 +712,11 @@ export class Zeigen {
     const HD = this.HD;
     if (ort && HD.bereit) HD.aktualisieren(ort.lat, ort.lon, jetzt);
     if (ort && this.einst.planeten || (ort && this.ziel && this.ziel.art === "planet")) HD.planetenAktualisieren(ort.lat, ort.lon, jetzt);
+    // ohne Sensoren: Hindrehen nachholen, sobald die Daten des Ziels da sind
+    if (this._drehenSpaeter) {
+      if (this.hatDaten || this.ziel !== this._drehenSpaeter) this._drehenSpaeter = null;
+      else if (!this._blickFlug) this._dreheZu(this._drehenSpaeter);
+    }
     const cx = w / 2, cy = h / 2;
     const F = (Math.max(w, h) / 2) / Math.tan((this._sichtwinkel() / 2) * A.RAD);
     this.F = F;

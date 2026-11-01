@@ -7,18 +7,32 @@ const BEINAMEN = {
   UMi: ["Kleiner Wagen", "Kleiner Bär"],
   Cas: ["Himmels-W", "Himmels W"],
   Tau: ["Plejaden", "Siebengestirn", "Hyaden"],
-  Ori: ["Himmelsjäger", "Oriongürtel"],
+  Ori: ["Himmelsjäger", "Oriongürtel", "Winterdreieck"],
   Cyg: ["Kreuz des Nordens", "Nordkreuz", "Sommerdreieck"],
   Lyr: ["Sommerdreieck"],
   Aql: ["Sommerdreieck"],
   Sgr: ["Teekanne", "Milchstraßenzentrum"],
   Cru: ["Kreuz des Südens"],
   Peg: ["Herbstviereck", "Pegasusquadrat"],
-  CMa: ["Großer Hund"],
+  CMa: ["Großer Hund", "Winterdreieck"],
   CMi: ["Kleiner Hund", "Winterdreieck"],
   And: ["Andromedagalaxie", "Andromedanebel"],
   Her: ["Kugelsternhaufen M13"],
   Cnc: ["Krippe", "Praesepe"],
+  // ältere oder andere deutsche Namen
+  Car: ["Schiffskiel"],
+  Dor: ["Goldfisch"],
+  Ind: ["Inder"],
+  Equ: ["Pferdchen"],
+  Pyx: ["Kompass"],
+  Tel: ["Fernrohr"],
+};
+
+// andere Schreibweisen bekannter Sterne (englisch/lateinisch, ältere Namen)
+const STERN_BEINAMEN = {
+  Wega: ["Vega"], Kapella: ["Capella"], Arktur: ["Arcturus"], Prokyon: ["Procyon"], Beteigeuze: ["Betelgeuse", "Beteigeuse"],
+  Atair: ["Altair"], Kastor: ["Castor"], Polarstern: ["Polaris", "Nordstern"], Tiansi: ["Navi", "Tsih"],
+  "Alpha Centauri": ["Rigil Kentaurus", "Toliman"], Alkyone: ["Alcyone"], Elektra: ["Electra"], Alkor: ["Alcor"],
 };
 
 /** Text für den Vergleich: klein, ohne Umlaute und Akzente, ß = ss */
@@ -45,7 +59,7 @@ export function suchEintraege(HD, iss, sats = []) {
       });
     }
     HD.sterne.forEach((z, k) => {
-      if (z[4]) L.push({ o: { art: "stern", k }, name: z[4], zusatz: z[5] || "", art: "Stern", gruppe: 3, mag: z[2], dec: z[1], namen: [z[4], z[5]] });
+      if (z[4]) L.push({ o: { art: "stern", k }, name: z[4], zusatz: z[5] || "", art: "Stern", gruppe: 3, mag: z[2], dec: z[1], namen: [z[4], z[5], ...(STERN_BEINAMEN[z[4]] || [])] });
     });
   }
   for (const e of L) {

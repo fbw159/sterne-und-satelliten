@@ -4,22 +4,37 @@ export const LAND = {
   US: "USA", PRC: "China", UK: "Großbritannien", CIS: "Russland (früher Sowjetunion)", TBD: "noch nicht bekannt",
   JPN: "Japan", IT: "Italien", SKOR: "Südkorea", NKOR: "Nordkorea", IND: "Indien", FR: "Frankreich", GER: "Deutschland",
   ESA: "Europäische Weltraumorganisation (ESA)", SPN: "Spanien", CA: "Kanada", TURK: "Türkei", SES: "SES (Luxemburg)",
-  ITSO: "Intelsat", O3B: "O3b (SES)", AUS: "Australien", EUTE: "Eutelsat", FIN: "Finnland", ARGN: "Argentinien",
+  ITSO: "Intelsat (heute SES)", O3B: "O3b (SES)", AUS: "Australien", EUTE: "Eutelsat", FIN: "Finnland", ARGN: "Argentinien",
   GLOB: "Globalstar", ROC: "Taiwan", UAE: "Vereinigte Arabische Emirate", NOR: "Norwegen", GREC: "Griechenland",
-  ISRA: "Israel", SAUD: "Saudi-Arabien", POL: "Polen", BRAZ: "Brasilien", IM: "Inmarsat", ORB: "Orbcomm",
+  ISRA: "Israel", SAUD: "Saudi-Arabien", POL: "Polen", BRAZ: "Brasilien", IM: "Inmarsat (heute Viasat)", ORB: "Orbcomm",
   SING: "Singapur", IRAN: "Iran", LUXE: "Luxemburg", POR: "Portugal", BEL: "Belgien", AB: "Arabsat",
   INDO: "Indonesien", EUME: "EUMETSAT (Europa)", NETH: "Niederlande", SWED: "Schweden", SWTZ: "Schweiz",
-  DEN: "Dänemark", AUT: "Österreich", CZE: "Tschechien", MEX: "Mexiko", THAI: "Thailand", MALA: "Malaysia",
+  DEN: "Dänemark", CZCH: "Tschechien", MEX: "Mexiko", THAI: "Thailand", MALA: "Malaysia",
   PAKI: "Pakistan", EGYP: "Ägypten", ALG: "Algerien", NIG: "Nigeria", KAZ: "Kasachstan", UKR: "Ukraine",
-  VTNM: "Vietnam", PHIL: "Philippinen", CHLE: "Chile", PER: "Peru", COL: "Kolumbien", ISS: "ISS-Partner",
+  VTNM: "Vietnam", RP: "Philippinen", CHLE: "Chile", PERU: "Peru", COL: "Kolumbien", ISS: "ISS-Partner",
   NATO: "NATO", EUTL: "Eutelsat", RWA: "Ruanda", KEN: "Kenia", ETH: "Äthiopien", SAFR: "Südafrika",
   HUN: "Ungarn", LTU: "Litauen", EST: "Estland", LAOS: "Laos", NPL: "Nepal", BGD: "Bangladesch", BOL: "Bolivien",
-  ECU: "Ecuador", URY: "Uruguay", TMMC: "Turkmenistan", AZER: "Aserbaidschan", ASRA: "Österreich",
+  ECU: "Ecuador", URY: "Uruguay", TMMC: "Turkmenistan/Monaco", AZER: "Aserbaidschan", ASRA: "Österreich",
   QAT: "Katar", BHR: "Bahrain", KWT: "Kuwait", OMAN: "Oman", JOR: "Jordanien", TUN: "Tunesien", MA: "Marokko",
   GHA: "Ghana", SVN: "Slowenien", SVK: "Slowakei", ROM: "Rumänien", BUL: "Bulgarien", IRL: "Irland",
-  ISL: "Island", NZ: "Neuseeland", ESRO: "ESRO (Europa)", FGER: "Frankreich/Deutschland", ESA_: "ESA",
+  ISL: "Island", NZ: "Neuseeland", ESRO: "ESRO (Europa)", FGER: "Frankreich/Deutschland",
   ITU: "ITU", IRID: "Iridium", SEAL: "Sea Launch",
+  // Kürzel aus dem CelesTrak-Katalog, die vorher fehlten (geprüft 01.11.2026)
+  AC: "AsiaSat (Hongkong)", ABS: "ABS (Asia Broadcast Satellite)", BELA: "Belarus", VENZ: "Venezuela",
+  CHBZ: "China/Brasilien", NICO: "ICO/Omnispace", RASC: "RascomStar-QAF (Afrika)", STCT: "Singapur/Taiwan",
+  FRIT: "Frankreich/Italien", IRAQ: "Irak", GRSA: "Griechenland/Saudi-Arabien", ANG: "Angola", HRV: "Kroatien",
+  DJI: "Dschibuti", BWA: "Botswana", SLB: "Salomonen", MNE: "Montenegro",
 };
+
+/** Land oder Organisation zum Katalog-Kürzel; „CIS“ je nach Startdatum Sowjetunion oder Russland */
+export function landName(code, start = null) {
+  if (code === "CIS" && start) return start < "1991-12-26" ? "Sowjetunion" : "Russland";
+  return LAND[code] || code;
+}
+
+// Kürzel für Organisationen statt Ländern – dafür keine Zeile „Land“ im Steckbrief
+export const ORGANISATION = new Set(["ITSO", "SES", "O3B", "EUTE", "EUTL", "GLOB", "IM", "ORB", "IRID", "AB", "EUME", "ESA",
+  "ESRO", "NATO", "ITU", "SEAL", "AC", "ABS", "NICO", "RASC", "ISS", "TBD"]);
 
 export const STARTPLATZ = {
   AFETR: "Cape Canaveral (Florida, USA)", AFWTR: "Vandenberg (Kalifornien, USA)", JSC: "Jiuquan (China)",
@@ -27,9 +42,9 @@ export const STARTPLATZ = {
   TAISC: "Taiyuan (China)", WSC: "Wenchang (China)", XICLF: "Xichang (China)", PLMSC: "Plessezk (Russland)",
   SRILR: "Sriharikota (Indien)", RLLB: "Mahia (Neuseeland)", YSLA: "Gelbes Meer (China, vom Schiff)",
   DLS: "Dombarowski (Russland)", TANSC: "Tanegashima (Japan)", NSC: "Naro (Südkorea)", SEAL: "Sea Launch (Pazifik)",
-  STARB: "Starbase (Texas, USA)", SCSLA: "Südchinesisches Meer (vom Schiff)", ERAS: "vom Flugzeug aus gestartet",
+  STARB: "Starbase (Texas, USA)", SCSLA: "Südchinesisches Meer (vom Schiff)", ERAS: "vom Flugzeug aus gestartet (über dem Atlantik)",
   KSCUT: "Uchinoura (Japan)", WLPIS: "Wallops Island (Virginia, USA)", ANDSP: "Andøya (Norwegen)",
-  WRAS: "Woomera (Australien)", WOMRA: "Woomera (Australien)", KODAK: "Kodiak (Alaska, USA)",
+  WRAS: "vom Flugzeug aus gestartet (über dem Pazifik)", WOMRA: "Woomera (Australien)", KODAK: "Kodiak (Alaska, USA)",
   SEMLS: "Semnan (Iran)", SMTS: "Shahrud (Iran)", YUN: "Sohae (Nordkorea)", JJSLA: "vor Jeju (Südkorea, vom Meer)",
   KYMSC: "Kapustin Jar (Russland)", HGSTR: "Hammaguira (Algerien)", SNMLP: "San Marco (Kenia)",
   PKMTR: "Pacific Missile Range (Hawaii, USA)", OREN: "Jasny (Russland)", SVOB: "Swobodny (Russland)",
@@ -164,7 +179,7 @@ const BEKANNT = [
     text: "Satellit von AST SpaceMobile mit einer riesigen ausklappbaren Antennenfläche. Er soll normale Handys direkt aus dem All versorgen und ist deshalb ungewöhnlich hell." },
   { name: "TDRS", titel: "TDRS", wiki: "Tracking and Data Relay Satellite",
     text: "Relaissatellit der NASA in 36.000 km Höhe. Er leitet Funk und Daten zwischen Raumschiffen wie der ISS und den Bodenstationen weiter." },
-  { name: "ASTRA", titel: "ASTRA", wiki: "Astra (Satellit)",
+  { name: "ASTRA ", titel: "ASTRA", wiki: "Astra (Satellit)",
     text: "Fernsehsatellit von SES. Die ASTRA-Satelliten auf 19,2° Ost versorgen viele Haushalte in Deutschland mit Fernsehen über die Schüssel." },
   { name: "EUTELSAT", titel: "Eutelsat", wiki: "Eutelsat", text: "Kommunikationssatellit von Eutelsat für Fernsehen und Datenübertragung." },
   { name: "INTELSAT", titel: "Intelsat", wiki: "Intelsat", text: "Kommunikationssatellit von Intelsat in 36.000 km Höhe." },
@@ -211,7 +226,7 @@ export function anzeigeName(name) {
 const BETREIBER = [
   [/^STARLINK/, "SpaceX (USA)", "Internet aus dem All"],
   [/^ONEWEB/, "Eutelsat OneWeb (Großbritannien/Frankreich)", "Internet aus dem All"],
-  [/^(KUIPER|AMAZON)/, "Amazon (USA)", "Internet aus dem All (Amazon Leo, früher Projekt Kuiper)"],
+  [/^(KUIPER|AMAZON LEO)/, "Amazon (USA)", "Internet aus dem All (Amazon Leo, früher Projekt Kuiper)"],
   [/^QIANFAN/, "Shanghai Spacesail Technologies (China)", "Internet aus dem All"],
   [/^(HULIANWANG|GUOWANG)/, "China SatNet (China)", "Internet aus dem All"],
   [/^RASSVET/, "Bureau 1440 (Russland)", "Internet aus dem All"],
@@ -223,14 +238,14 @@ const BETREIBER = [
   [/^(NAVSTAR|GPS )/, "US Space Force (USA)", "Navigation (GPS)"],
   [/GALILEO/, "EU (EUSPA) mit der ESA", "Navigation (Galileo, das europäische GPS)"],
   [/GLONASS/, "Roskosmos (Russland)", "Navigation (GLONASS, das russische GPS)"],
-  [/^BEIDOU/, "China (CNSA)", "Navigation (BeiDou, das chinesische GPS)"],
+  [/^BEIDOU/, "China (Amt für Satellitennavigation CSNO)", "Navigation (BeiDou, das chinesische GPS)"],
   [/^QZS/, "Japan", "Navigation (QZSS, ergänzt GPS über Japan)"],
   [/^(IRNSS|NVS-)/, "ISRO (Indien)", "Navigation (NavIC, das indische GPS)"],
   [/^CENTISPACE/, "Future Navigation (China)", "verbessert die Satellitennavigation aus niedriger Bahn"],
   [/^GEESAT/, "Geespace, eine Tochter des Autobauers Geely (China)", "Ortung und Datenfunk für vernetzte Fahrzeuge"],
   [/^SENTINEL/, "ESA für Copernicus, das Erdbeobachtungsprogramm der EU", "Erdbeobachtung: Land, Meere, Eis und Luft"],
   [/^(METOP|METEOSAT|MTG-)/, "EUMETSAT (Europa)", "Wetterbeobachtung für die Vorhersage"],
-  [/^(NOAA |GOES |JPSS|SUOMI)/, "NOAA, Wetter- und Ozeanbehörde (USA)", "Wetterbeobachtung"],
+  [/^(NOAA |GOES |JPSS|SUOMI NPP)/, "NOAA, Wetter- und Ozeanbehörde (USA)", "Wetterbeobachtung"],
   [/^FENGYUN/, "Chinesischer Wetterdienst (CMA)", "Wetterbeobachtung"],
   [/^METEOR-M/, "Russischer Wetterdienst (Roshydromet)", "Wetterbeobachtung"],
   [/^HIMAWARI/, "Japanischer Wetterdienst (JMA)", "Wetterbeobachtung"],
@@ -243,7 +258,7 @@ const BETREIBER = [
   [/^CAPELLA/, "Capella Space (USA)", "Radarbilder der Erde – auch durch Wolken und bei Nacht"],
   [/^STRIX/, "Synspective (Japan)", "Radarbilder der Erde"],
   [/^QPS/, "iQPS (Japan)", "Radarbilder der Erde"],
-  [/^(WORLDVIEW|GEOEYE)/, "Maxar (USA)", "sehr scharfe Fotos der Erde"],
+  [/^(WORLDVIEW|GEOEYE)/, "Vantor (früher Maxar, USA)", "sehr scharfe Fotos der Erde"],
   [/^GLOBAL-/, "BlackSky (USA)", "Fotos der Erde, mehrmals am Tag"],
   [/^NUSAT/, "Satellogic (Argentinien/Uruguay)", "Fotos der Erde"],
   [/^GRUS/, "Axelspace (Japan)", "Fotos der Erde"],
@@ -253,11 +268,11 @@ const BETREIBER = [
   [/^GHGSAT/, "GHGSat (Kanada)", "spürt Methan-Austritte auf"],
   [/^IRIDE/, "Italien (ASI) mit der ESA", "Erdbeobachtung"],
   [/^HAWK/, "HawkEye 360 (USA)", "ortet Funksignale auf der Erde"],
-  [/^(TIANQI)/, "Guodian Gaoke (China)", "Datenfunk für Geräte (Internet der Dinge)"],
+  [/^TIANQI(?!N)/, "Guodian Gaoke (China)", "Datenfunk für Geräte (Internet der Dinge)"],
   [/^KINEIS/, "Kinéis (Frankreich)", "Datenfunk für Geräte (Internet der Dinge)"],
   [/^GONETS/, "Gonets (Russland)", "Datenfunk"],
-  [/^(SES|O3B|ASTRA)/, "SES (Luxemburg)", "Fernsehen, Internet und Datenverbindungen"],
-  [/^INTELSAT/, "Intelsat (Luxemburg/USA)", "Fernsehen und Datenverbindungen"],
+  [/^(SES|O3B|ASTRA )/, "SES (Luxemburg)", "Fernsehen, Internet und Datenverbindungen"],
+  [/^INTELSAT/, "Intelsat, seit 2025 Teil von SES (Luxemburg)", "Fernsehen und Datenverbindungen"],
   [/^EUTELSAT/, "Eutelsat (Frankreich)", "Fernsehen und Datenverbindungen"],
   [/^INMARSAT/, "Inmarsat (heute Viasat)", "Verbindungen für Schiffe und Flugzeuge"],
   [/^VIASAT/, "Viasat (USA)", "Internet aus dem All"],
@@ -283,7 +298,7 @@ const BETREIBER = [
   [/^USA /, "US-Militär oder Aufklärungsdienst NRO (USA)", "geheim – meist Aufklärung oder Frühwarnung"],
   [/^WGS/, "US-Militär (USA)", "militärische Nachrichtenverbindungen"],
   [/^SDA/, "Space Development Agency (USA)", "militärisches Datennetz und Raketen-Frühwarnung"],
-  [/^COSMOS/, "meist das russische Verteidigungsministerium", "meist militärisch"],
+  [/^COSMOS/, "meist das Verteidigungsministerium (Sowjetunion bzw. Russland)", "meist militärisch"],
   [/^FALCON 9/, "SpaceX (USA)", null],
   [/^CZ-/, "China (Rakete „Langer Marsch“)", null],
   [/^SL-/, "Sowjetunion bzw. Russland", null],
@@ -316,7 +331,7 @@ export function betreiber(name, kat, info) {
   for (const [rx, f, z] of BETREIBER) {
     if (rx.test(n)) { firma = f; zweck = z; break; }
   }
-  if (!firma && info && info[2]) firma = LAND[info[2]] || info[2];
+  if (!firma && info && info[2]) firma = landName(info[2], info[3]);
   if (!zweck) {
     if (info && info[0] === "DEB") zweck = "keine – ein Trümmerteil";
     else if (info && info[0] === "R/B") zweck = ZWECK_KAT.stufe;
@@ -324,6 +339,19 @@ export function betreiber(name, kat, info) {
   }
   return { firma, zweck };
 }
+
+/** Fürwörter passend zum Objekt: „der Satellit“ → er, „die Raketenstufe“ → sie, „das Raumschiff“ → es */
+const FUERWORT = {
+  er: { er: "er", Er: "Er", ihm: "ihm", Sein: "Sein", Seine: "Seine" },
+  sie: { er: "sie", Er: "Sie", ihm: "ihr", Sein: "Ihr", Seine: "Ihre" },
+  es: { er: "es", Er: "Es", ihm: "ihm", Sein: "Sein", Seine: "Seine" },
+};
+export function fuerwort(was) {
+  if (was === "Raketenstufe" || was === "Raumstation") return FUERWORT.sie;
+  if (was === "Trümmerteil" || was === "Raumschiff" || was === "Modul einer Raumstation" || was === "Weltraumteleskop") return FUERWORT.es;
+  return FUERWORT.er;
+}
+export const fuerwortVon = (schluessel) => FUERWORT[schluessel] || FUERWORT.er;
 
 /** Was für ein Objekt ist das? (Satellit, Raumstation, Raumschiff, Raketenstufe, Trümmerteil …) */
 export function artWort(name, kat, typ) {

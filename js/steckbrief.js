@@ -1,7 +1,7 @@
 // Infobox eines Satelliten: was er ist, wofür, Betreiber, Live-Werte, Überflüge, Wissenswertes, Bahn, Verweise
 import * as A from "./astro.js";
 import { KAT } from "./globus.js";
-import { LAND, STARTPLATZ, ART, BETRIEB, KAT_TEXT, bekannt, anzeigeName, betreiber, artWort } from "./texte.js";
+import { landName, ORGANISATION, STARTPLATZ, ART, BETRIEB, KAT_TEXT, bekannt, anzeigeName, betreiber, artWort, fuerwort, fuerwortVon } from "./texte.js";
 import { esc, zahl, km, grad, mag, uhr, tag, datum, relativ, alterText, helligkeitWort } from "./ui.js";
 import { ortName } from "./orte.js";
 
@@ -37,13 +37,13 @@ export function passHtml(p, name = null, mitTag = true) {
   const m = p.art === 1 && p.hellste != null ? `<span class="mag">${mag(p.hellste)}</span>` : "";
   const min = Math.max(1, Math.round(p.dauer / 60));
   return `<div class="pass-zeit"><span>${mitTag ? tag(p.start) + " " : ""}${uhr(p.start)}–${uhr(p.ende)}${name ? " · " + esc(name) : ""}</span>${m}</div>
-    <div class="pass-weg">↗ ${A.richtung(p.azStart)} · höchster Punkt ${Math.round(p.maxEl)}° in ${A.richtung(p.azMax)} um ${uhr(p.maxT)} · ↘ ${A.richtung(p.azEnde)} · ${min} min</div>
+    <div class="pass-weg">↗ ${A.richtung(p.azStart)} · höchster Punkt ${Math.round(p.maxEl)}° im ${A.richtung(p.azMax)} um ${uhr(p.maxT)} · ↘ ${A.richtung(p.azEnde)} · ${min} min</div>
     <div class="pass-art${a.ja ? " ja" : ""}">${a.ja ? "★ " : ""}${esc(a.text)}</div>`;
 }
 
-function landText(code) {
+function landText(code, start) {
   if (!code) return "–";
-  return LAND[code] || code;
+  return landName(code, start);
 }
 
 function wikiUrl(begriff) {
@@ -52,8 +52,9 @@ function wikiUrl(begriff) {
 
 function jahreText(ms, jetzt) {
   const j = (jetzt - ms) / (365.25 * 86400000);
-  if (j < 0.08) return `seit ${Math.max(1, Math.round(j * 365.25))} Tagen`;
-  if (j < 1) return `seit ${Math.round(j * 12)} Monaten`;
+  const tage = Math.max(1, Math.round(j * 365.25)), monate = Math.round(j * 12);
+  if (j < 0.08) return tage === 1 ? "seit einem Tag" : `seit ${tage} Tagen`;
+  if (j < 1) return monate <= 1 ? "seit einem Monat" : `seit ${monate} Monaten`;
   if (j < 1.5) return "seit gut einem Jahr";
   return `seit ${zahl(Math.floor(j))} Jahren`;
 }
@@ -72,6 +73,7 @@ export function steckbriefHtml(c) {
   const typ = info ? info[0] : null;
   const was = artWort(name, kat, typ);
   const { firma, zweck } = betreiber(name, kat, info);
+  const fw = fuerwort(was);
 
   let html = `<div class="sb-kopf">
     <div class="sb-titel"><h2>${esc(titel)}${id === 25544 && titel !== "ISS" ? '<span class="etikett e-iss">ISS</span>' : ""}</h2>
@@ -90,8 +92,8 @@ export function steckbriefHtml(c) {
   const ohneZweck = was === "Raketenstufe" || was === "Trümmerteil";
   if (zweck && !ohneZweck) zeilen.push(["Wofür?", esc(zweck)]);
   if (firma) zeilen.push([was === "Raketenstufe" ? "Rakete von" : was === "Trümmerteil" ? "Herkunft" : "Betreiber", esc(firma)]);
-  const land = info && info[2] ? landText(info[2]) : "";
-  if (land && firma && !firma.includes(land) && was !== "Trümmerteil" && !["TBD", "ISS"].includes(info[2])) zeilen.push(["Land", esc(land)]);
+  const land = info && info[2] ? landText(info[2], info[3]) : "";
+  if (land && firma && !firma.includes(land) && was !== "Trümmerteil" && !ORGANISATION.has(info[2])) zeilen.push(["Land", esc(land)]);
   if (info && info[3]) {
     const start = Date.parse(info[3] + "T12:00:00Z");
     zeilen.push(["Im All", `${jahreText(start, c.jetzt)} <small>(Start ${esc(datum(start))})</small>`]);
@@ -125,9 +127,9 @@ export function steckbriefHtml(c) {
   // Wissenswertes
   const fakten = [];
   if (art === "geostationär") {
-    fakten.push("Er umkreist die Erde genau einmal pro Tag – so schnell, wie sie sich dreht. Deshalb scheint er von der Erde aus still am Himmel zu stehen.");
+    fakten.push(`${fw.Er} umkreist die Erde genau einmal pro Tag – so schnell, wie sie sich dreht. Deshalb scheint ${fw.er} von der Erde aus still am Himmel zu stehen.`);
   } else if (P < 225) {
-    fakten.push(`Eine Erdumrundung dauert ${zahl(P)} Minuten – das sind ${zahl(1440 / P, 1)} Runden am Tag. So erlebt er jeden Tag etwa ${Math.round(1440 / P)} Sonnenaufgänge.`);
+    fakten.push(`Eine Erdumrundung dauert ${zahl(P)} Minuten – das sind ${zahl(1440 / P, 1)} Runden am Tag. So erlebt ${fw.er} jeden Tag etwa ${Math.round(1440 / P)} Sonnenaufgänge.`);
   } else {
     fakten.push(`Eine Erdumrundung dauert ${P < 1440 ? zahl(P / 60, 1) + " Stunden" : zahl(P / 1440, 1) + " Tage"}.`);
   }
@@ -139,7 +141,8 @@ export function steckbriefHtml(c) {
     if (jahre > 0.05) {
       const runden = (c.jetzt - start) / 60000 / P;
       const strecke = runden * 2 * Math.PI * (A.RE + (h.hp + h.ha) / 2);
-      let t = `Seit dem Start vor ${jahre < 1 ? Math.round(jahre * 12) + " Monaten" : zahl(jahre, jahre < 10 ? 1 : 0) + " Jahren"} hat er die Erde etwa ${zahl(Math.round(runden / (runden > 1000 ? 100 : 1)) * (runden > 1000 ? 100 : 1))}-mal umrundet`;
+      const vor = jahre < 1 ? (Math.round(jahre * 12) <= 1 ? "einem Monat" : Math.round(jahre * 12) + " Monaten") : zahl(jahre, jahre < 10 ? 1 : 0) + " Jahren";
+      let t = `Seit dem Start vor ${vor} hat ${fw.er} die Erde etwa ${zahl(Math.round(runden / (runden > 1000 ? 100 : 1)) * (runden > 1000 ? 100 : 1))}-mal umrundet`;
       if (strecke > 2e8) t += ` und rund ${zahl(strecke / 1e9, 1)} Milliarden km zurückgelegt – ${zahl(strecke / 149.6e6)}-mal so weit wie von der Erde zur Sonne.`;
       else if (strecke > 1e6) t += ` und rund ${zahl(strecke / 1e6)} Millionen km zurückgelegt.`;
       else t += ".";
@@ -152,7 +155,7 @@ export function steckbriefHtml(c) {
   if (kt && kat !== "iss" && kat !== "station" && !(b && b.text === kt)) {
     if (kat === "starlink") teile.unshift(kt); else teile.push(kt);
   }
-  html += `<h3 class="abschnitt">Wissenswert</h3><div class="texte">${teile.map((t) => `<p>${esc(t)}</p>`).join("")}<ul class="fakten">${fakten.map((f) => `<li>${f}</li>`).join("")}</ul></div>`;
+  html += `<h3 class="abschnitt">Wissenswert</h3><div class="texte">${teile.map((t) => `<p>${esc(t)}</p>`).join("")}<ul class="fakten" data-fuerwort="${fw.er}">${fakten.map((f) => `<li>${f}</li>`).join("")}</ul></div>`;
   html += `<div class="wiki" data-wert="wiki" hidden></div>`;
 
   // Einzelheiten zum Aufklappen: Katalog, Bahn, Verweise
@@ -190,6 +193,8 @@ export function steckbriefAktualisieren(el, c) {
   const d = c.detail, st = c.st;
   const setze = (k, v) => { const x = el.querySelector(`[data-wert="${k}"]`); if (x && x.innerHTML !== v) x.innerHTML = v; };
   const z = zustandText(st, d, c.sonneEl);
+  const fakten = el.querySelector(".fakten");
+  const fw = fuerwortVon(fakten ? fakten.dataset.fuerwort : "er");
   const zEl = el.querySelector('[data-wert="zustand"]');
   if (zEl) { zEl.classList.toggle("ja", z.ja); zEl.querySelector("span").textContent = z.text; }
   if (!d) return;
@@ -200,8 +205,8 @@ export function steckbriefAktualisieren(el, c) {
     const m = d.el > 0 && d.mag != null ? `${mag(d.mag)} <small>${helligkeitWort(d.mag)}</small>` : d.licht < 0.5 ? "unsichtbar" : "–";
     setze("mag", m);
     const rr = d.rr;
-    const bewegung = Math.abs(rr) < 0.05 ? "Sein Abstand zu dir bleibt fast gleich." : `Gerade ${rr < 0 ? "kommt er dir näher" : "entfernt er sich"} mit ${zahl(Math.abs(rr), 1)} km pro Sekunde.`;
-    setze("fakt-licht", `Licht braucht von ihm bis zu dir ${zahl(d.r / LICHT_C * 1000, 1)} Millisekunden. ${bewegung}`);
+    const bewegung = Math.abs(rr) < 0.05 ? `${fw.Sein} Abstand zu dir bleibt fast gleich.` : `Gerade ${rr < 0 ? `kommt ${fw.er} dir näher` : `entfernt ${fw.er} sich`} mit ${zahl(Math.abs(rr), 1)} km pro Sekunde.`;
+    setze("fakt-licht", `Licht braucht von ${fw.ihm} bis zu dir ${zahl(d.r / LICHT_C * 1000, 1)} Millisekunden. ${bewegung}`);
   }
   setze("hoehe", km(d.hoehe));
   const kmh = d.tempo * 3600;
@@ -210,7 +215,7 @@ export function steckbriefAktualisieren(el, c) {
   const koord = `${zahl(Math.abs(d.lat), 1)}° ${d.lat >= 0 ? "N" : "S"}, ${zahl(Math.abs(d.lon), 1)}° ${d.lon >= 0 ? "O" : "W"}`;
   setze("ueber", wo ? `${esc(wo)}<small class="klein-block">${koord}</small>` : koord);
   setze("licht", d.licht >= 0.99 ? "angestrahlt" : d.licht <= 0.01 ? "im Erdschatten" : "im Halbschatten");
-  setze("fakt-tempo", `Er fliegt ${zahl(d.tempo, 2)} km pro Sekunde. Für die gut 600 km von Hamburg nach München bräuchte er nur ${zahl(612 / d.tempo)} Sekunden.`);
+  setze("fakt-tempo", `${fw.Er} fliegt ${zahl(d.tempo, 2)} km pro Sekunde. Für die gut 600 km von Hamburg nach München bräuchte ${fw.er} nur ${zahl(612 / d.tempo)} Sekunden.`);
 }
 
 /** Kurzfassung aus der deutschen Wikipedia (nur für bekannte Objekte) */

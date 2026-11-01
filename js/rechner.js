@@ -39,7 +39,10 @@ function lage(s, ms) {
   const r = sgp4(s.sr, (A.jd(ms) - s.sr.jdsatepoch) * 1440);
   if (!r || !r.position || !Number.isFinite(r.position.x)) return null;
   const p = r.position;
-  if (p.x * p.x + p.y * p.y + p.z * p.z < A.RE * A.RE) return null; // verglüht
+  const r2 = p.x * p.x + p.y * p.y + p.z * p.z;
+  if (r2 < A.RE * A.RE) return null; // verglüht
+  // unsinnige Werte (z. B. sehr alte Bahndaten einer tief fliegenden Stufe): weiter als 2 Mio. km gibt es hier nicht
+  if (r2 > 4e12) return null;
   return r;
 }
 

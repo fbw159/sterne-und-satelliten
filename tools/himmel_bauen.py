@@ -15,6 +15,7 @@ import argparse, json, math, os, re, sys
 
 # Eigennamen nur für Sterne, deren Namen sicher sind: Schlüssel „Buchstabe Sternbild“ oder „Nummer Sternbild“.
 # Der Name geht an den hellsten passenden Stern (z. B. α² CVn = Cor Caroli).
+# γ Cas: IAU-Name „Tiansi“ seit 13.11.2025 (vorher nur der Spitzname „Navi“ aus dem Apollo-Programm).
 NAMEN = {
     "α CMa": "Sirius", "β CMa": "Mirzam", "δ CMa": "Wezen", "ε CMa": "Adhara", "η CMa": "Aludra", "ζ CMa": "Furud",
     "α Car": "Canopus", "β Car": "Miaplacidus", "ε Car": "Avior", "ι Car": "Aspidiske",
@@ -49,7 +50,7 @@ NAMEN = {
     "α And": "Alpheratz", "β And": "Mirach", "γ And": "Almach",
     "α Oph": "Rasalhague", "η Oph": "Sabik", "β Oph": "Cebalrai",
     "λ Vel": "Suhail",
-    "α Cas": "Schedar", "β Cas": "Caph", "γ Cas": "Navi", "δ Cas": "Ruchbah", "ε Cas": "Segin",
+    "α Cas": "Schedar", "β Cas": "Caph", "γ Cas": "Tiansi", "δ Cas": "Ruchbah", "ε Cas": "Segin",
     "α CrB": "Alphecca", "γ Dra": "Eltanin", "β Dra": "Rastaban", "α Dra": "Thuban",
     "ζ Pup": "Naos",
     "ε Peg": "Enif", "β Peg": "Scheat", "α Peg": "Markab", "γ Peg": "Algenib",
@@ -82,6 +83,14 @@ ENTFERNUNG = {
     "α TrA": 390, "θ Sco": 300, "δ Cas": 99, "β Lyr": "~960", "γ Aql": 395, "β Aql": 45, "η Tau": 440,
 }
 
+# Sternbilder: deutsche Namen wie in der deutschen Wikipedia („Liste der Sternbilder“, geprüft 01.11.2026),
+# lateinische Namen und Genitive nach IAU – d3-celestial weicht hier ab („Goldfisch“, „Phoenix“, „Segel“,
+# „Corona Austrina“, Genitiv „Crux“ statt „Crucis“ …)
+SB_DE = {"Car": "Kiel des Schiffs", "Dor": "Schwertfisch", "Ind": "Indianer", "Phe": "Phönix",
+         "Pup": "Achterdeck des Schiffs", "Vel": "Segel des Schiffs", "Hyi": "Kleine Wasserschlange"}
+SB_LA = {"CrA": "Corona Australis", "Ser": "Serpens"}
+SB_GEN = {"CrA": "Coronae Australis", "Cru": "Crucis"}
+
 GRIECH = "αβγδεζηθικλμνξοπρστυφχψω"
 HOCH = {"¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9"}
 
@@ -108,7 +117,7 @@ def main():
     linien_d3 = json.load(open(os.path.join(a.d3, "constellations.lines.json"), encoding="utf-8"))
     gen = {}
     for f in namen_d3["features"]:
-        gen[f["id"]] = f["properties"]["gen"]
+        gen[f["id"]] = SB_GEN.get(f["id"], f["properties"]["gen"])
 
     roh = json.load(open(a.bsc, encoding="utf-8"))
     sterne = []
@@ -176,14 +185,13 @@ def main():
     for f in namen_d3["features"]:
         p = f["properties"]
         k = f["id"]
-        de = re.sub(r"\s+", " ", p["de"].replace(" ", " ")).strip()
-        de = {"Kleine Männliche Wasserschlange": "Kleine Wasserschlange", "Kiel des Schiffs": "Schiffskiel"}.get(de, de)
+        de = SB_DE.get(k) or re.sub(r"\s+", " ", p["de"].replace(" ", " ")).strip()
         lon, lat = f["geometry"]["coordinates"]
         if k in sb:  # Schlange: Kopf und Schwanz
             sb[k]["pos"].append([round(ra_(lon), 2), round(lat, 2)])
             continue
-        la = p["name"] if k != "Ser" else "Serpens"
-        sb[k] = {"k": k, "de": de, "la": la, "gen": p["gen"], "rang": int(p["rank"]), "pos": [[round(ra_(lon), 2), round(lat, 2)]], "linien": []}
+        la = SB_LA.get(k, p["name"])
+        sb[k] = {"k": k, "de": de, "la": la, "gen": SB_GEN.get(k, p["gen"]), "rang": int(p["rank"]), "pos": [[round(ra_(lon), 2), round(lat, 2)]], "linien": []}
     # Linien als Folgen von Punkten; Abgleich mit dem Sternkatalog
     vek = [(math.cos(math.radians(s["de"])) * math.cos(math.radians(s["ra"])), math.cos(math.radians(s["de"])) * math.sin(math.radians(s["ra"])), math.sin(math.radians(s["de"]))) for s in sterne]
     ohne = 0

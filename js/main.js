@@ -3,7 +3,7 @@ import { Globus, KAT } from "./globus.js";
 import * as A from "./astro.js";
 import { $, $$, esc, zahl, km, mag, uhr, tag, datum, melde, altesVergessen, helligkeitWort } from "./ui.js";
 import { steckbriefHtml, steckbriefAktualisieren, wikiLaden, passHtml, zustandText } from "./steckbrief.js";
-import { bekannt, anzeigeName, betreiber, artWort } from "./texte.js";
+import { bekannt, anzeigeName, betreiber, artWort, fuerwort } from "./texte.js";
 import { Himmel } from "./himmel.js";
 import { Zeigen } from "./zeigen.js";
 import { missweisung } from "./magvar.js";
@@ -88,7 +88,7 @@ try {
 } catch (e) {
   console.error(e);
   globus = globusErsatz();
-  setTimeout(() => { bilderDa = true; startFertig(); melde("Dein Browser kann den 3D-Globus nicht anzeigen (WebGL fehlt). Listen, Himmelskarte und Zeigen funktionieren trotzdem.", 12); blattHoehe("gross"); }, 0);
+  setTimeout(() => { bilderDa = true; startFertig(); melde("Dein Browser kann den 3D-Globus nicht anzeigen (WebGL fehlt). Listen, Himmelskarte und Himmel live funktionieren trotzdem.", 12); blattHoehe("gross"); }, 0);
 }
 function globusOptionen() { return {
   onWahl: (i) => { if (i < 0 && boxArt === "objekt") objektZu(); waehle(i); },
@@ -651,7 +651,14 @@ function issZeichnen(neu = false) {
   html += `<div class="knopf-reihe"><button class="knopf-gross haupt" data-iss="steckbrief"><svg viewBox="0 0 40 24" style="width:30px"><use href="#i-iss"/></svg>Alles über die ISS</button></div>`;
   html += `<h3 class="abschnitt">Überflüge in den nächsten 5 Tagen</h3>`;
   if (!issPaesse) html += '<p class="leer">wird berechnet …</p>';
-  else if (!issPaesse.length) html += '<p class="leer">Keine Überflüge gefunden.</p>';
+  else if (!issPaesse.length) {
+    // Bahnneigung + Sichtweite kleiner als die eigene Breite: dann kommt die ISS hier nie über den Horizont
+    const si = sats[issIdx], h = A.bahnHoehen(si[4], si[5]);
+    const reicht = si[6] + Math.acos(A.RE / (A.RE + h.ha)) * A.DEG;
+    html += ort && reicht < Math.abs(ort.lat)
+      ? `<p class="leer">Von hier aus kommt die ISS nie über den Horizont: Sie fliegt nur bis ${zahl(si[6], 1)}° nördlicher und südlicher Breite.</p>`
+      : '<p class="leer">Keine Überflüge gefunden.</p>';
+  }
   else {
     const sichtbare = issPaesse.filter((p) => p.art === 1).length;
     html += `<p class="hinweis-klein">${sichtbare ? `${sichtbare} davon mit bloßem Auge sichtbar (★).` : "Keiner davon ist mit bloßem Auge sichtbar – die ISS ist dann im Erdschatten oder es ist zu hell."}</p><ol class="pass-liste">`;
@@ -1025,9 +1032,11 @@ function paesseFuer(i) {
   const s = sats[i];
   frage(vorher, { typ: "ueberfluege", id: s[0], sat: s, von: Date.now() - 10 * 60000, tage: 3 }).then((m) => {
     if (auswahl !== i) return;
+    const kat = info && info[String(s[0])];
+    const fw = fuerwort(artWort(s[1], s[14], kat ? kat[0] : null));
     let html;
     if (m.hoch) {
-      html = `<li class="leer">${m.immerOben ? `Dieser Satellit steht für dich dauerhaft über dem Horizont: in Richtung ${A.richtung(m.az)}, ${Math.round(m.el)}° hoch. Er geht weder auf noch unter.` : "Dieser Satellit bleibt für dich dauerhaft unter dem Horizont."}</li>`;
+      html = `<li class="leer">${m.immerOben ? `${fw.Er} steht für dich dauerhaft über dem Horizont: in Richtung ${A.richtung(m.az)}, ${Math.round(m.el)}° hoch, und geht weder auf noch unter.` : `${fw.Er} bleibt für dich dauerhaft unter dem Horizont.`}</li>`;
     } else if (m.fehler) {
       html = `<li class="leer">Überflüge ließen sich nicht berechnen.</li>`;
     } else {
@@ -1039,8 +1048,8 @@ function paesseFuer(i) {
         const weite = Math.acos(A.RE / (A.RE + h.ha)) * A.DEG;
         const incl = s[6] > 90 ? 180 - s[6] : s[6];
         html = ort && incl + weite < Math.abs(ort.lat)
-          ? `<li class="leer">Seine Bahn ist nur ${zahl(s[6], 1)}° gegen den Äquator geneigt. Er fliegt deshalb nie weit genug nach ${ort.lat > 0 ? "Norden" : "Süden"} und kommt bei dir nie über den Horizont.</li>`
-          : '<li class="leer">In den nächsten 3 Tagen kommt er nicht über deinen Horizont.</li>';
+          ? `<li class="leer">${fw.Seine} Bahn ist nur ${zahl(s[6], 1)}° gegen den Äquator geneigt. ${fw.Er} fliegt deshalb nie weit genug nach ${ort.lat > 0 ? "Norden" : "Süden"} und kommt bei dir nie über den Horizont.</li>`
+          : `<li class="leer">In den nächsten 3 Tagen kommt ${fw.er} nicht über deinen Horizont.</li>`;
       }
     }
     paesseCache = { id: s[0], html };

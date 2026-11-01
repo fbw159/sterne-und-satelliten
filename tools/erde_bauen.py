@@ -28,6 +28,9 @@ UMBENENNEN = {
     "Vereinigte Staaten": "USA", "Antarktika": "Antarktis", "Guantanamo Bay Naval Base": "US-Stützpunkt Guantánamo",
     "United States Minor Outlying Islands": "Kleinere Amerikanische Überseeinseln", "Cayman Islands": "Kaimaninseln",
     "Arktischer Ozean": "Nordpolarmeer", "Bahía de Campeche": "Bucht von Campeche",
+    # Schreibweise wie in der deutschen Wikipedia (geprüft 01.11.2026)
+    "Weddell-Meer": "Weddellmeer", "Bellingshausen-See": "Bellingshausensee", "Balearen-Meer": "Balearenmeer",
+    "Schelichow-Bucht": "Schelichow-Golf",
 }
 # Dativ mit Artikel („gerade über …“); alle anderen Länder ohne Artikel
 DATIV = {
@@ -91,9 +94,38 @@ def dativ_wasser(n):
 SEE_NAMEN = {"Oberer": "Oberer See", "Weißer": "Weißer See", "Pleskauer": "Pleskauer See", "Lake Eyre North": "Eyresee",
              "Lake Eyre South": "Eyresee", "Lake Kariba": "Karibasee"}
 
+# Seen ohne deutschen Namen in Natural Earth: dort steht in name_de oft nur der verkürzte Name („Reindeer“ statt
+# „Reindeer Lake“) – daraus wurde früher „See Reindeer“. Jetzt (geprüft 01.11.2026, Schreibweisen wie in der
+# deutschen Wikipedia): gebräuchlicher deutscher Name, sonst der Name vor Ort („Reindeer Lake“, „Lac Saint-Jean“).
+# Schlüssel = Natural-Earth-Feld „name“ (bei Bermen fehlt es, dann name_de).
+SEE_FEST = {
+    "Lake Saimaa": "Saimaa", "Lake Turkana": "Turkana-See", "Issyk-Kul": "Yssykköl", "Vänern": "Vänern",
+    "Päijänne": "Päijänne", "Qinghai Hu": "Qinghai-See", "Lagoa Mirim": "Lagoa Mirim", "Uvs Nuur": "Uws Nuur",
+    "Khövsgöl Nuur": "Chöwsgöl Nuur", "Tonlé Sap": "Tonle Sap", "Syvash": "Siwasch", "Hulun Nuur": "Hulun Nur",
+    "Tai Hu": "Tai Hu", "Hongze Hu": "Hongze Hu", "Poyang Hu": "Poyang-See", "Vättern": "Vättern",
+    "Lago Buenos Aires": "Lago General Carrera", "Mälaren": "Mälaren", "Nam Co": "Nam Co", "Inarijärvi": "Inarisee",
+    "Lago Argentino": "Lago Argentino", "Lago Madre": "Laguna Madre", "Har Us Nuur": "Char-Us-Nuur",
+    "Lake Tuz": "Tuz Gölü", "Lake Tharthar": "Tharthar-See", "Siling Co": "Siling Co", "Lake Vygozero": "Wygosero",
+    "Razzaza Lake": "Razazza-See", "Khyargas Nuur": "Chjargas Nuur", "Oulujärvi": "Oulujärvi", "Pielinen": "Pielinen",
+    "Pyhäjärvi": "Pyhäjärvi", "Lago Viedma": "Lago Viedma", "Lake Topozero": "Toposero", "Bosten Hu": "Bosten-See",
+    "Lake Segozerskoye": "Segosero", "Gaoyou Hu": "Gaoyou Hu", "Chao Hu": "Chao Hu", "Tangra Yumco": "Tangra Yumco",
+    "Yamzho Yumco": "Yamzhog Yumco", "Lago Llanquihue": "Llanquihue-See", "Lago de Izabal": "Izabal-See",
+    "Pääjärvi": "Pjaosero", "Lake Kovdozero": "Kowdosero", "Toktogul Res.": "Toktogul-Stausee",
+    "Siletitengiz Köli": "Siletitengiz Köli", "Biwa Ko": "Biwa-See", "Lake Srednye Kuyto": "Sredneje Kuito",
+    "Ayakkum Hu": "Ayakkum Hu", "Gyaring Hu": "Gyaring Hu", "Ngoring Hu": "Ngoring Hu", "Lake Balaton": "Balaton",
+    "Storsjön": "Storsjön", "Uddjaure": "Uddjaure", "Buyr Nuur": "Buir Nuur", "Hjälmaren": "Hjälmaren",
+    "Ngangla Ringeo": "Ngangla Ringco", "Qusmuryn Köli": "Qusmuryn Köli", "Ozero Krasnoye": "Krasnoje-See",
+    "Lake Disappointment": "Kumpupintil Lake", "Rés. de La Grande 2": "Réservoir Robert-Bourassa",
+    "Rés. de La Grande 3": "Réservoir La Grande 3", "Lake Bienville": "Lac Bienville", "Lake Naococane": "Lac Naococane",
+    "Lake Sakami": "Lac Sakami", "Lac-à-l'Eau-Claire": "Lac à l’Eau Claire", "Cabonga Reservoir": "Réservoir Cabonga",
+    "Lake Saint Clair": "Lake St. Clair", "Lower Red Lake": "Red Lake", "Bermen": "Lac Bermen",
+}
+# nicht mehr vorhanden: Der Kachowkaer Stausee ist seit der Zerstörung des Damms im Juni 2023 leergelaufen
+SEE_WEG = {"Kakhovka Reservoir"}
+
 
 def dativ_see(n):
-    """Binnenseen: der See -> „dem Bodensee“, „dem Großen Bärensee“, „dem See Vänern“"""
+    """Binnenseen mit deutschem Namen: „dem Bodensee“, „dem Großen Bärensee“, „der Schardara-Talsperre“"""
     n = SEE_NAMEN.get(n, n)
     w = n.split(" ")
     kopf = w[-1].lower()
@@ -101,9 +133,24 @@ def dativ_see(n):
         return "der " + n
     if kopf.endswith(("see", "meer", "haff")):
         return "dem " + " ".join([beuge(x) for x in w[:-1]] + [w[-1]])
-    if any(x in n for x in ("Lake", "Lago", "Reservoir")):
-        return "dem " + n
-    return "dem See " + n
+    if n.startswith(("Laguna ", "Lagoa ")):
+        return "der " + n
+    return "dem " + n
+
+
+def see_name(p):
+    """Name eines Sees im Dativ – oder None, wenn er nicht (mehr) benannt werden soll"""
+    voll, de = p.get("name"), p.get("name_de")
+    if voll in SEE_WEG:
+        return None
+    schl = voll or de
+    if schl in SEE_FEST:
+        return dativ_see(SEE_FEST[schl])
+    if de and (de.lower().endswith(("see", "meer", "haff", "talsperre")) or de in SEE_NAMEN):
+        return dativ_see(de)
+    # sonst der Name vor Ort, wie er auch in der deutschen Wikipedia steht („Reindeer Lake“, „Lake Mead“)
+    n = (voll or de).replace("Ft. ", "Fort ").replace("Rés. ", "Réservoir ").replace(" Res.", " Reservoir")
+    return dativ_see(n)
 
 
 def dp(punkte, tol):
@@ -257,7 +304,10 @@ def main():
         polys = polygone(f["geometry"])
         if sum(flaeche_km2(pl[0]) for pl in polys) < SEE_MIN_KM2:
             continue
-        namen.append(dativ_see(n))
+        nm = see_name(p)
+        if nm is None:
+            continue
+        namen.append(nm)
         male(see, polys, len(namen) - 1, loecher=False)
         seenamen += 1
     S = np.array(see, dtype=np.int32)

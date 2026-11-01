@@ -26,7 +26,7 @@ const SB_TEXT = {
   Leo: "Frühlingssternbild. Der Kopf sieht aus wie ein rückwärts geschriebenes Fragezeichen, darunter steht der helle Regulus.",
   Gem: "Die beiden hellen Sterne Kastor und Pollux sind die Köpfe der Zwillinge.",
   Tau: "Mit dem rötlichen Aldebaran und zwei bekannten Sternhaufen: den Plejaden (Siebengestirn) und den Hyaden.",
-  Sco: "Sommersternbild tief im Süden, mit dem roten Riesenstern Antares im Herzen des Skorpions.",
+  Sco: "Sommersternbild tief im Süden, mit dem roten Überriesen Antares im Herzen des Skorpions.",
   Sgr: "In dieser Richtung liegt das Zentrum unserer Milchstraße. Die hellsten Sterne sehen aus wie eine Teekanne.",
   Boo: "Mit Arktur, dem hellsten Stern des Nordhimmels. Man findet ihn, indem man den Bogen der Deichsel des Großen Wagens verlängert.",
   Vir: "Großes Tierkreissternbild mit dem bläulichen Stern Spica. Hier liegen viele ferne Galaxien.",
@@ -34,7 +34,7 @@ const SB_TEXT = {
   CMi: "Mit Prokyon. Er bildet mit Sirius und Beteigeuze das Winterdreieck.",
   Aur: "Mit der hellen Kapella, die im Winter hoch über uns steht.",
   Per: "Mit Algol, einem Stern, der alle knapp drei Tage für einige Stunden dunkler wird. Im August scheinen die Sternschnuppen der Perseiden von hier zu kommen.",
-  And: "Hier liegt die Andromeda-Galaxie, 2,5 Millionen Lichtjahre entfernt – das Fernste, was man mit bloßem Auge sehen kann.",
+  And: "Hier liegt die Andromeda-Galaxie, 2,5 Millionen Lichtjahre entfernt – eines der fernsten Dinge, die man mit bloßem Auge sehen kann.",
   Peg: "Vier helle Sterne bilden das große Herbstviereck, den Rumpf des geflügelten Pferdes.",
   Dra: "Der Drache windet sich zwischen Großem und Kleinem Bären hindurch.",
   Her: "Hier liegt der Kugelsternhaufen M13 mit Hunderttausenden Sternen, im Fernglas ein kleiner Nebelfleck.",
@@ -51,7 +51,7 @@ const SB_TEXT = {
   Cet: "Mit Mira, einem Stern, der im Lauf von knapp einem Jahr sehr hell und wieder unsichtbar wird.",
   Psc: "Ein großes, eher lichtschwaches Tierkreissternbild. Hier steht zurzeit der Frühlingspunkt.",
   Ari: "Klein, mit dem hellen Stern Hamal. Ein klassisches Tierkreissternbild.",
-  Lib: "Die Waage war früher die Scheren des Skorpions – daher die Sternnamen Zubenelgenubi und Zubeneschamali („südliche“ und „nördliche Schere“).",
+  Lib: "Die Sterne der Waage galten früher als die Scheren des Skorpions – daher die Sternnamen Zubenelgenubi und Zubeneschamali („südliche“ und „nördliche Schere“).",
   Cap: "Eher lichtschwaches Tierkreissternbild am Herbsthimmel, tief im Süden.",
   Aqr: "Großes, lichtschwaches Tierkreissternbild am Herbsthimmel.",
   PsA: "Mit Fomalhaut, dem einzigen hellen Stern tief am Herbsthimmel im Süden.",
@@ -98,7 +98,7 @@ function lichtZeit(kmEntf) {
 
 function knoepfe(o, mitSteckbrief, opt = {}) {
   const hin = opt.hinText || "Hinführen";
-  return `<div class="info-knoepfe">${o.hinfuehren !== false ? `<button class="knopf" data-info="hin"><svg><use href="#i-${opt.hinText ? "handy" : "pfeil"}"/></svg>${esc(hin)}</button>` : ""}${mitSteckbrief ? '<button class="knopf" data-info="steckbrief">Alles über ihn</button>' : ""}</div>`;
+  return `<div class="info-knoepfe">${o.hinfuehren !== false ? `<button class="knopf" data-info="hin"><svg><use href="#i-${opt.hinText ? "handy" : "pfeil"}"/></svg>${esc(hin)}</button>` : ""}${mitSteckbrief ? '<button class="knopf" data-info="steckbrief">Mehr dazu</button>' : ""}</div>`;
 }
 
 /**
